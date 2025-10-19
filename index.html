@@ -3,39 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Temple Run — Ekansh vs KAJU KATTRI</title>
+  <title>Temple Run — Ekansh vs KAJU KATTRI (Fixed)</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
-    :root{--accent:#00e6a8;--bg:#071226;--panel:rgba(255,255,255,0.06);--glass:rgba(255,255,255,0.06)}
-    html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Arial,Helvetica,sans-serif;color:#fff}
+    :root{--accent:#00e6a8;--bg:#071226}
+    html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,Arial,sans-serif;color:#fff}
     #game-container{width:100%;height:100vh;display:flex;align-items:center;justify-content:center}
     .ui-top{position:fixed;left:12px;top:12px;display:flex;gap:12px;align-items:center;z-index:40}
-    .panel{background:var(--panel);backdrop-filter:blur(6px);padding:10px 14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
-    .title{font-weight:700;color:var(--accent)}
+    .panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:10px}
     .controls{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;display:flex;gap:18px;z-index:40}
-    .btn{width:78px;height:78px;border-radius:50%;border:none;background:linear-gradient(180deg,#1f1f1f, #111);color:#fff;font-size:24px;box-shadow:0 8px 20px rgba(0,0,0,0.5)}
-    .btn:active{transform:scale(0.98)}
+    .btn{width:72px;height:72px;border-radius:50%;border:none;background:linear-gradient(180deg,#1f1f1f,#111);color:#fff;font-size:22px}
     .small-btn{width:44px;height:44px;border-radius:10px}
-    #mobile-hint{position:fixed;left:12px;bottom:12px;font-size:13px;opacity:0.9}
     .center-screen{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50}
-    .start-card{width:min(420px,92vw);padding:22px;border-radius:14px;text-align:center;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-    .start-title{font-size:26px;margin-bottom:8px;color:var(--accent);font-weight:800}
-    .muted{opacity:0.8;font-size:14px}
-    .highscore{color:#ffdd57;font-weight:700}
+    .start-card{width:min(460px,92vw);padding:22px;border-radius:14px;text-align:center;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));}
+    .start-title{font-size:24px;margin-bottom:8px;color:var(--accent);font-weight:800}
+    #mobile-hint{position:fixed;left:12px;bottom:12px;font-size:13px;opacity:0.95}
   </style>
 </head>
 <body>
   <div id="game-container"></div>
 
   <div class="ui-top">
-    <div class="panel" id="score-panel">Score: <span id="score">0</span></div>
+    <div class="panel" id="score-panel">Score: 0</div>
     <div class="panel">Distance: <span id="dist">0</span></div>
     <div class="panel">High: <span id="high">0</span></div>
-    <div style="width:10px"></div>
-    <button class="small-btn panel" id="pauseBtn">⏸</button>
+    <button id="pauseBtn" class="small-btn panel">⏸</button>
   </div>
 
-  <div id="mobile-hint" class="muted">Swipe left/right/up or use buttons below</div>
+  <div id="mobile-hint">Swipe left/right/up or use buttons below</div>
 
   <div class="controls" id="touchControls" style="display:none">
     <button id="leftBtn" class="btn">◀</button>
@@ -46,266 +41,211 @@
   <div class="center-screen" id="startCard">
     <div class="start-card">
       <div class="start-title">Temple Run — Ekansh vs KAJU KATTRI</div>
-      <div class="muted">A mobile-first, friendly runner. Collect coins, avoid obstacles.<br/>Player: <strong>ekansh</strong> • Monster: <strong>KAJU KATTRI</strong></div>
-      <div style="height:16px"></div>
-      <div>High score: <span id="start-high" class="highscore">0</span></div>
-      <div style="height:18px"></div>
+      <div style="margin-bottom:10px">Player: <strong>ekansh</strong> • Monster: <strong>KAJU KATTRI</strong></div>
+      <div style="margin-bottom:8px">High score: <span id="start-high">0</span></div>
       <button id="startBtn" class="btn" style="width:220px;height:56px;font-size:18px">Start Game</button>
       <div style="height:10px"></div>
-      <div class="muted">Sound: <label><input id="soundToggle" type="checkbox" checked> On</label></div>
+      <div style="margin-top:8px">Sound: <label><input id="soundToggle" type="checkbox" checked> On</label></div>
     </div>
   </div>
 
 <script>
-// Single-file Phaser 3 runner with mobile-first UI, high-score save, adaptive AI, and nicer UI
+// Robust, fixed single-file Phaser runner
 const IS_MOBILE = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth <= 820;
-
 const GAME_WIDTH = Math.min(900, window.innerWidth);
 const GAME_HEIGHT = Math.min(700, window.innerHeight);
 
-// Save/Load high score
-function loadHigh() { return Number(localStorage.getItem('ekansh_high') || 0); }
+function loadHigh(){ return Number(localStorage.getItem('ekansh_high') || 0); }
 function saveHigh(v){ localStorage.setItem('ekansh_high', String(v)); }
 
-class Boot extends Phaser.Scene { create(){ this.scene.start('Start'); } }
+class Boot extends Phaser.Scene{ constructor(){ super('Boot'); } create(){ this.scene.start('Start'); }}
 
 class Start extends Phaser.Scene{
   constructor(){ super('Start'); }
-  preload() { }
   create(){
-    // show start UI from DOM
     document.getElementById('startCard').style.display = 'block';
     document.getElementById('start-high').innerText = loadHigh();
+    if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex'; else document.getElementById('mobile-hint').style.display = 'none';
 
-    // start btn
-    document.getElementById('startBtn').onclick = () => {
+    document.getElementById('startBtn').onclick = ()=>{
       const soundOn = document.getElementById('soundToggle').checked;
-      this.scene.start('Main', { soundOn });
       document.getElementById('startCard').style.display = 'none';
+      this.scene.start('Main', { soundOn });
     };
-
-    // if mobile, show controls
-    if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex';
-    else document.getElementById('mobile-hint').style.display = 'none';
   }
 }
 
 class Main extends Phaser.Scene{
   constructor(){ super('Main'); }
-  init(data){ this.soundOn = data.soundOn; }
+  init(data){ this.soundOn = !!data.soundOn; this.isPausedGame = false; }
 
   preload(){
-    // short free sound loops (pixabay) - remote files (may be blocked); fallbacks handled
+    // small audio files; if blocked it's ok
     this.load.audio('bgm','https://cdn.pixabay.com/download/audio/2023/03/30/audio_b2a0c5e7de.mp3?filename=running-game-loop-145381.mp3');
     this.load.audio('coin','https://cdn.pixabay.com/download/audio/2021/09/14/audio_6c84a49a03.mp3?filename=collect-coin-1-190131.mp3');
     this.load.audio('jump','https://cdn.pixabay.com/download/audio/2021/09/07/audio_3b6c6d7c22.mp3?filename=jump-142094.mp3');
   }
 
   create(){
-    // UI DOM refs
-    this.scoreEl = document.getElementById('score'); this.distEl = document.getElementById('dist'); this.highEl = document.getElementById('high');
+    // DOM refs
+    this.scorePanel = document.getElementById('score-panel'); this.distEl = document.getElementById('dist'); this.highEl = document.getElementById('high');
     this.highScore = loadHigh(); this.highEl.innerText = this.highScore;
 
-    // Adaptive difficulty state (AI helper)
+    // adaptive helper (if player has recent losses)
     this.lossStreak = Number(localStorage.getItem('ekansh_loss') || 0);
-    this.helperMode = false;
-    if(this.lossStreak >= 2) { this.helperMode = true; }
+    this.helperMode = this.lossStreak >= 2;
 
-    // Background parallax - simple rectangles
-    this.bgGroup = this.add.group();
-    for(let i=0;i<6;i++){
-      const rect = this.add.rectangle(i*(GAME_WIDTH/3), GAME_HEIGHT/2, GAME_WIDTH/3 + 40, GAME_HEIGHT, 0x042732).setOrigin(0,0.5).setAlpha(0.06 + i*0.02);
-      this.bgGroup.add(rect);
-    }
+    // background simple
+    this.add.rectangle(0,0,GAME_WIDTH,GAME_HEIGHT,0x071226).setOrigin(0,0);
 
-    // Lanes: compute responsive positions
+    // lanes
     const center = GAME_WIDTH/2; const spacing = Math.min(150, GAME_WIDTH/6);
     this.lanes = [center - spacing, center, center + spacing];
+    this.playerLane = 1;
 
-    // Ground y (responsive)
+    // ground
     this.groundY = GAME_HEIGHT - 120;
 
-    // Player
-    this.playerLane = 1;
+    // player
     this.player = this.add.rectangle(this.lanes[this.playerLane], this.groundY - 40, 46, 84, 0x00e6a8).setDepth(5);
-    this.playerName = this.add.text(this.player.x, this.player.y - 70, 'ekansh', {font:'16px Inter',color:'#fff'}).setOrigin(0.5).setDepth(6);
-    this.physics.add.existing(this.player);
-    this.player.body.setCollideWorldBounds(true);
-    this.player.body.setSize(46,84);
-    this.player.body.setGravityY(1600);
+    this.playerName = this.add.text(this.player.x, this.player.y - 70, 'ekansh', {font:'16px Arial',color:'#fff'}).setOrigin(0.5);
+    this.physics.add.existing(this.player); this.player.body.setCollideWorldBounds(true); this.player.body.setSize(46,84); this.player.body.setGravityY(1600);
 
-    // Monster (chaser) starts off-screen bottom and slowly approaches
-    this.monster = this.add.rectangle(this.lanes[0], GAME_HEIGHT + 200, 110, 100, 0xff4d4d).setDepth(4);
-    this.monsterName = this.add.text(this.monster.x, this.monster.y - 70, 'KAJU KATTRI', {font:'14px Inter',color:'#fff'}).setOrigin(0.5).setDepth(6);
+    // monster
+    this.monster = this.add.rectangle(this.lanes[0], GAME_HEIGHT + 220, 110, 100, 0xff4d4d).setDepth(4);
+    this.monsterName = this.add.text(this.monster.x, this.monster.y - 70, 'KAJU KATTRI', {font:'14px Arial',color:'#fff'}).setOrigin(0.5);
     this.physics.add.existing(this.monster); this.monster.body.setImmovable(true);
 
-    // Groups
-    this.obstacles = this.physics.add.group();
-    this.coins = this.physics.add.group();
+    // groups
+    this.obstacles = this.physics.add.group(); this.coins = this.physics.add.group();
 
-    // Sounds
-    this.sfx = { coin: null, jump: null, bgm: null };
+    // sounds
+    this.sfx = {};
     if(this.soundOn){
-      this.sfx.bgm = this.sound.add('bgm', {volume:0.25, loop:true});
-      this.sfx.coin = this.sound.add('coin', {volume:0.5});
-      this.sfx.jump = this.sound.add('jump', {volume:0.4});
-      try{ this.sfx.bgm.play(); } catch(e){}
+      try{ this.sfx.bgm = this.sound.add('bgm', {volume:0.25, loop:true}); this.sfx.bgm.play(); } catch(e){}
+      try{ this.sfx.coin = this.sound.add('coin', {volume:0.5}); } catch(e){}
+      try{ this.sfx.jump = this.sound.add('jump', {volume:0.4}); } catch(e){}
     }
 
-    // HUD text inside canvas for aesthetics
-    this.canvasHUD = this.add.text(GAME_WIDTH - 16, 16, '', {font:'14px Inter', color:'#fff'}).setOrigin(1,0).setDepth(10);
-
-    // Input
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.keyA = this.input.keyboard.addKey('A'); this.keyD = this.input.keyboard.addKey('D');
-    this.input.keyboard.on('keydown-R', ()=>this.restart());
-    this.input.keyboard.on('keydown-P', ()=>this.togglePause());
-
-    // Touch buttons events
-    document.getElementById('leftBtn').onclick = ()=>this.changeLane(-1);
-    document.getElementById('rightBtn').onclick = ()=>this.changeLane(1);
-    document.getElementById('jumpBtn').onclick = ()=>this.tryJump();
-
-    // Pause button
-    document.getElementById('pauseBtn').onclick = ()=>this.togglePause();
-
-    // Mobile swipe
-    this.input.on('pointerdown', p=>this._swipeStart = {x:p.x,y:p.y,t:Date.now()});
-    this.input.on('pointerup', p=>{
-      if(!this._swipeStart) return; const dx = p.x - this._swipeStart.x; const dy = p.y - this._swipeStart.y;
-      if(Math.abs(dx) > Math.abs(dy)){ if(dx>40) this.changeLane(1); else if(dx<-40) this.changeLane(-1); }
-      else{ if(dy < -40) this.tryJump(); }
-      this._swipeStart = null;
-    });
-
-    // Collisions
-    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
-    this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
-
-    // Spawn timers (adaptive using helper mode)
-    this.baseSpawn = this.helperMode ? 1400 : 900; // helper mode makes it easier
-    this.spawnTimer = 0; this.spawnInterval = this.baseSpawn;
-    this.coinTimer = 0; this.coinInterval = 1100;
-
-    // Movement speed for obstacles (px/sec)
-    this.worldSpeedBase = this.helperMode ? 190 : 260;
-
-    // Distance & score
-    this.distance = 0; this.score = 0; this.coinsCollected = 0;
-
-    // Camera shake ready
-    this.cameras.main.setBackgroundColor('#071226');
-
-    // small ground zone for landing detection
+    // physics floor for landing detection
     this.floor = this.add.zone(GAME_WIDTH/2, this.groundY + 10, GAME_WIDTH, 20); this.physics.add.existing(this.floor, true);
     this.physics.add.collider(this.player, this.floor);
 
-    // Keep UI DOM high score in sync
-    this.highEl.innerText = this.highScore;
-    document.getElementById('score-panel').innerText = 'Score: 0';
+    // inputs
+    this.cursors = this.input.keyboard.createCursorKeys(); this.keyA = this.input.keyboard.addKey('A'); this.keyD = this.input.keyboard.addKey('D');
+    this.input.keyboard.on('keydown-R', ()=>this.restart());
+    document.getElementById('leftBtn').onclick = ()=>this.changeLane(-1);
+    document.getElementById('rightBtn').onclick = ()=>this.changeLane(1);
+    document.getElementById('jumpBtn').onclick = ()=>this.tryJump();
+    document.getElementById('pauseBtn').onclick = ()=>this.togglePause();
 
-    // Show/hide keyboard hints depending on device
-    if(IS_MOBILE){ document.getElementById('mobile-hint').style.display = 'block'; } else { document.getElementById('mobile-hint').style.display = 'none'; }
+    // touch swipe
+    this.input.on('pointerdown', p=>this._swipeStart = {x:p.x,y:p.y,t:Date.now()});
+    this.input.on('pointerup', p=>{ if(!this._swipeStart) return; const dx = p.x - this._swipeStart.x; const dy = p.y - this._swipeStart.y; if(Math.abs(dx)>Math.abs(dy)){ if(dx>40) this.changeLane(1); else if(dx<-40) this.changeLane(-1);} else { if(dy < -40) this.tryJump(); } this._swipeStart = null; });
+
+    // collisions
+    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+    this.physics.add.overlap(this.player, this.obstacles, this.onHitObstacle, null, this);
+
+    // game timers and speed
+    this.baseSpawn = this.helperMode ? 1200 : 900; this.spawnTimer = 0; this.spawnInterval = this.baseSpawn;
+    this.coinTimer = 0; this.coinInterval = 1100;
+    this.worldSpeedBase = this.helperMode ? 190 : 260;
+
+    this.distance = 0; this.score = 0; this.coinsCollected = 0; this.isGameOver = false;
+
+    // show touch controls if mobile
+    if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex'; else document.getElementById('mobile-hint').style.display = 'none';
+
+    // update start DOM panel high
+    document.getElementById('high').innerText = this.highScore;
   }
 
-  changeLane(dir){ if(this.isGameOver) return; const newLane = Phaser.Math.Clamp(this.playerLane + dir, 0, 2); if(newLane===this.playerLane) return; this.playerLane = newLane; this.tweens.add({ targets:[this.player,this.playerName], x: this.lanes[this.playerLane], duration: 140, ease:'Cubic.Out' }); }
-  tryJump(){ if(this.isGameOver) return; if(Math.abs(this.player.y - (this.groundY - 40)) < 6){ this.player.body.setVelocityY(-520); if(this.sfx.jump) this.sfx.jump.play(); }}
+  changeLane(dir){ if(this.isGameOver) return; const newLane = Phaser.Math.Clamp(this.playerLane+dir,0,2); if(newLane===this.playerLane) return; this.playerLane=newLane; this.tweens.add({targets:[this.player,this.playerName], x:this.lanes[this.playerLane], duration:140, ease:'Cubic.Out'}); }
 
-  spawnObstacle(){ const lane = Phaser.Math.Between(0,2); const x = this.lanes[lane]; const y = -60; const rect = this.add.rectangle(x,y,92,54,0xff8b3d); this.physics.add.existing(rect); rect.body.setAllowGravity(false); rect.body.setVelocityY(this.worldSpeedBase + Phaser.Math.Between(-30,30)); rect.setDepth(3); this.obstacles.add(rect); }
-  spawnCoin(){ const lane = Phaser.Math.Between(0,2); const x = this.lanes[lane]; const y = -80; const coin = this.add.circle(x,y,12,0xffe16b); this.physics.add.existing(coin); coin.body.setAllowGravity(false); coin.body.setVelocityY(this.worldSpeedBase - 10); coin.setDepth(4); this.coins.add(coin); }
+  tryJump(){ if(this.isGameOver) return; if(Math.abs(this.player.y - (this.groundY - 40)) < 8){ this.player.body.setVelocityY(-520); if(this.sfx.jump) try{ this.sfx.jump.play(); }catch(e){} }}
 
-  collectCoin(player, coin){ coin.destroy(); this.coinsCollected++; this.score += 8; if(this.sfx.coin) this.sfx.coin.play(); document.getElementById('score-panel').innerText = 'Score: ' + Math.floor(this.score); }
+  spawnObstacle(){ if(this.isGameOver) return; const lane = Phaser.Math.Between(0,2); const x = this.lanes[lane]; const y = -80; const rect = this.add.rectangle(x,y,92,54,0xff8b3d); this.physics.add.existing(rect); rect.body.setAllowGravity(false); rect.body.setVelocityY(this.worldSpeedBase + Phaser.Math.Between(-20,30)); rect.setDepth(3); this.obstacles.add(rect); }
+  spawnCoin(){ if(this.isGameOver) return; const lane = Phaser.Math.Between(0,2); const x = this.lanes[lane]; const y = -100; const coin = this.add.circle(x,y,12,0xffe16b); this.physics.add.existing(coin); coin.body.setAllowGravity(false); coin.body.setVelocityY(this.worldSpeedBase - 10); coin.setDepth(4); this.coins.add(coin); }
 
-  hitObstacle(){ // if player is in air above obstacle, ignore
-    // simple check: if player y < obstacle y - 10 then they jumped over
-    // otherwise game over
+  collectCoin(player, coin){ if(!coin || !coin.body) return; coin.destroy(); this.coinsCollected++; this.score += 8; if(this.sfx.coin) try{ this.sfx.coin.play(); }catch(e){} this.scorePanel.innerText = 'Score: ' + Math.floor(this.score); }
+
+  onHitObstacle(player, obstacle){ // allow jump-over: if player is above the obstacle, ignore
+    if(player.y + 10 < obstacle.y) return; // jumped over
     this.triggerGameOver(); }
 
-  triggerGameOver(){ if(this.isGameOver) return; this.isGameOver = true; // stop sounds
-    if(this.sfx.bgm) this.sfx.bgm.stop();
+  triggerGameOver(){ if(this.isGameOver) return; this.isGameOver = true; if(this.sfx.bgm) try{ this.sfx.bgm.stop(); }catch(e){}
     // update highscore
     if(Math.floor(this.score) > this.highScore){ this.highScore = Math.floor(this.score); saveHigh(this.highScore); }
-    // adaptive helper: update loss streak
-    if(Math.floor(this.score) < 30){ this.lossStreak++; } else { this.lossStreak = 0; }
+    // update loss streak
+    if(Math.floor(this.score) < 30){ this.lossStreak = (this.lossStreak || 0) + 1; } else { this.lossStreak = 0; }
     localStorage.setItem('ekansh_loss', String(this.lossStreak));
 
-    // show game over UI overlay (simple)
-    const style = { font:'26px Inter', color:'#fff', align:'center' };
-    this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, Math.min(500,GAME_WIDTH-40), 220, 0x000000, 0.6).setDepth(50);
-    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 30, 'GAME OVER', {font:'36px Inter', color: '#ff6b6b'}).setOrigin(0.5).setDepth(51);
-    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 10, 'Score: ' + Math.floor(this.score) + '   Coins: ' + this.coinsCollected, {font:'18px Inter', color:'#fff'}).setOrigin(0.5).setDepth(51);
-    const restart = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 60, 'Tap to Restart', {font:'16px Inter', color:'#ddd'}).setOrigin(0.5).setDepth(51);
-    // save high visible
-    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 92, 'High: ' + this.highScore, {font:'14px Inter', color:'#ffdd57'}).setOrigin(0.5).setDepth(51);
-
-    // remove touch controls
+    // hide controls
     document.getElementById('touchControls').style.display = 'none';
-    // restart on pointerdown
-    this.input.once('pointerdown', ()=>{ this.scene.restart(); document.getElementById('touchControls').style.display = IS_MOBILE ? 'flex' : 'none'; });
+    // game over UI
+    const panel = this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, Math.min(560,GAME_WIDTH-40), 220, 0x000000, 0.66).setDepth(50);
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 36, 'GAME OVER', {font:'34px Arial', color:'#ff6b6b'}).setOrigin(0.5).setDepth(51);
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 2, 'Score: ' + Math.floor(this.score) + '    Coins: ' + this.coinsCollected, {font:'18px Arial', color:'#fff'}).setOrigin(0.5).setDepth(51);
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 56, 'Tap / Click to Restart', {font:'16px Arial', color:'#ddd'}).setOrigin(0.5).setDepth(51);
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 88, 'High: ' + this.highScore, {font:'14px Arial', color:'#ffdd57'}).setOrigin(0.5).setDepth(51);
+
+    // restart listener
+    this.input.once('pointerdown', ()=>{ document.getElementById('touchControls').style.display = IS_MOBILE ? 'flex' : 'none'; this.scene.restart(); });
   }
 
-  togglePause(){ if(this.isGameOver) return; this.scene.isPaused() ? this.scene.resume() : this.scene.pause(); if(this.scene.isPaused()) document.getElementById('pauseBtn').innerText = '▶'; else document.getElementById('pauseBtn').innerText = '⏸'; }
+  togglePause(){ if(this.isGameOver) return; this.isPausedGame = !this.isPausedGame; if(this.isPausedGame){ this.physics.world.pause(); this.scene.pause(); document.getElementById('pauseBtn').innerText = '▶'; } else { this.physics.world.resume(); this.scene.resume(); document.getElementById('pauseBtn').innerText = '⏸'; }}
 
   restart(){ this.scene.restart(); }
 
   update(time, dt){ if(this.isGameOver) return;
-    // keyboard input
+    // keyboard
     if(Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.keyA)) this.changeLane(-1);
     if(Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.keyD)) this.changeLane(1);
     if(Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.cursors.space)) this.tryJump();
 
-    // background parallax motion
-    Phaser.Actions.IncY(this.bgGroup.getChildren(), -0.05 - (this.distance/20000));
-    this.bgGroup.getChildren().forEach((r)=>{ if(r.y < -GAME_HEIGHT) r.y = GAME_HEIGHT + 100; });
-
-    // spawn obstacles & coins
+    // spawn
     this.spawnTimer += dt; this.coinTimer += dt;
-    // adapt difficulty slightly as distance grows
-    const speedFactor = 1 + Math.floor(this.distance / 800) * 0.05;
+    const speedFactor = 1 + Math.floor(this.distance/800) * 0.03;
     this.worldSpeedBase = (this.helperMode ? 180 : 260) * speedFactor;
-
     if(this.spawnTimer > this.spawnInterval){ this.spawnTimer = 0; this.spawnInterval = Phaser.Math.Clamp(this.baseSpawn - Math.floor(this.distance/400)*30, 420, 1400); this.spawnObstacle(); }
-    if(this.coinTimer > this.coinInterval){ this.coinTimer = 0; this.spawnCoin(); this.coinInterval = Phaser.Math.Clamp(1100 - Math.floor(this.distance/300)*20, 500, 1300); }
+    if(this.coinTimer > this.coinInterval){ this.coinTimer = 0; this.coinInterval = Phaser.Math.Clamp(1100 - Math.floor(this.distance/300)*20, 500, 1300); this.spawnCoin(); }
 
-    // update obstacles & coins positions controlled by their velocity (set during spawn)
-    Phaser.Actions.Call(this.obstacles.getChildren(), obs=>{ if(obs.y > GAME_HEIGHT + 80) obs.destroy(); });
-    Phaser.Actions.Call(this.coins.getChildren(), c=>{ if(c.y > GAME_HEIGHT + 80) c.destroy(); });
+    // clean
+    this.obstacles.children.iterate(o=>{ if(o && o.y > GAME_HEIGHT + 80) { o.destroy(); }});
+    this.coins.children.iterate(c=>{ if(c && c.y > GAME_HEIGHT + 80) { c.destroy(); }});
 
-    // move monster upward slowly
-    const mSpeed = 80 + (this.distance/800); this.monster.y -= mSpeed * (dt/1000); this.monster.x = Phaser.Math.Linear(this.monster.x, this.lanes[Math.max(0,Math.min(2,this.playerLane))], 0.02);
+    // monster movement
+    const mSpeed = 80 + (this.distance/800);
+    this.monster.y -= mSpeed * (dt/1000);
+    this.monster.x = Phaser.Math.Linear(this.monster.x, this.lanes[Math.max(0,Math.min(2,this.playerLane))], 0.02);
     this.monsterName.x = this.monster.x; this.monsterName.y = this.monster.y - 70;
-    // if monster reaches player zone -> game over
     if(this.monster.y <= this.player.y + 60) this.triggerGameOver();
 
-    // update player name position
-    this.playerName.x = Phaser.Math.Linear(this.playerName.x, this.player.x, 0.25);
-    this.playerName.y = this.player.y - 70;
+    // player name follow
+    this.playerName.x = Phaser.Math.Linear(this.playerName.x, this.player.x, 0.25); this.playerName.y = this.player.y - 70;
 
     // distance & score
-    this.distance += (this.worldSpeedBase * (dt/1000));
-    this.score += 0.06 * (this.helperMode ? 0.8 : 1);
-    // update DOM HUDs
-    this.scoreEl.innerText = Math.floor(this.score);
+    this.distance += (this.worldSpeedBase * (dt/1000)); this.score += 0.06 * (this.helperMode ? 0.8 : 1);
+    this.scorePanel.innerText = 'Score: ' + Math.floor(this.score);
     this.distEl.innerText = Math.floor(this.distance);
     this.highEl.innerText = this.highScore;
-    document.getElementById('score-panel').innerText = 'Score: ' + Math.floor(this.score);
 
-    // AI helper auto-adjust: if many recent losses, make game easier by increasing spawn interval
-    if(this.lossStreak >= 2){ this.baseSpawn = 1200; this.helperMode = true; } else { this.baseSpawn = 900; this.helperMode = false; }
+    // adaptive helper update
+    if(this.lossStreak >= 2){ this.helperMode = true; this.baseSpawn = 1200; } else { this.helperMode = false; this.baseSpawn = 900; }
   }
 }
 
 const config = { type:Phaser.AUTO, width:GAME_WIDTH, height:GAME_HEIGHT, parent:'game-container', backgroundColor:'#071226', physics:{ default:'arcade', arcade:{ debug:false } }, scene:[Boot, Start, Main] };
 const game = new Phaser.Game(config);
 
-// show native controls initially hidden until Start
-if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex';
-else document.getElementById('touchControls').style.display = 'none';
+// initialize DOM values
+document.getElementById('start-high').innerText = loadHigh(); document.getElementById('high').innerText = loadHigh();
 
-// update start card high
-document.getElementById('start-high').innerText = loadHigh();
+// show controls depending on device
+if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex'; else document.getElementById('touchControls').style.display = 'none';
 
-// handle resize to be friendly
+// resize handler
 window.addEventListener('resize', ()=>{ const w = Math.min(900, window.innerWidth); const h = Math.min(700, window.innerHeight); game.scale.resize(w,h); });
 
 </script>
