@@ -6,10 +6,10 @@
 <title>Temple Run: Ekansh vs KAJU KATTRI</title>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
 <style>
-body { margin:0; background:#000; overflow:hidden; }
+body { margin:0; overflow:hidden; background:#111; }
 canvas { display:block; margin:auto; }
-.controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display:flex; gap:25px; z-index:10; }
-button { width:80px; height:80px; font-size:28px; border-radius:50%; border:none; background:#333; color:#fff; box-shadow:0 0 15px #00ff00; }
+.controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display:flex; gap:20px; z-index:10; }
+button { width:70px; height:70px; font-size:28px; border-radius:50%; border:none; background:#333; color:#fff; box-shadow:0 0 10px #00ff00; }
 button:active { background:#00ff00; color:#000; }
 </style>
 </head>
@@ -25,20 +25,20 @@ button:active { background:#00ff00; color:#000; }
 class StartScene extends Phaser.Scene {
   constructor(){ super('StartScene'); }
   create(){
-    this.add.text(150,220,'Temple Run:\nEkansh vs KAJU KATTRI',{fontSize:'38px', fill:'#00ff00', align:'center'});
-    this.add.text(280,400,'Tap or Press SPACE to Start',{fontSize:'22px', fill:'#fff'});
-    this.input.keyboard.once('keydown-SPACE', ()=>this.scene.start('TempleRunScene'));
-    this.input.once('pointerdown', ()=>this.scene.start('TempleRunScene'));
+    this.add.text(120,200,'Temple Run:\nEkansh vs KAJU KATTRI',{fontSize:'36px', fill:'#00ff00', align:'center'});
+    this.add.text(250,400,'Tap or Press SPACE to Start',{fontSize:'22px', fill:'#fff'});
+    this.input.keyboard.once('keydown-SPACE', ()=>this.scene.start('GameScene'));
+    this.input.once('pointerdown', ()=>this.scene.start('GameScene'));
   }
 }
 
-class TempleRunScene extends Phaser.Scene {
-  constructor(){ super('TempleRunScene'); }
-
+class GameScene extends Phaser.Scene {
+  constructor(){ super('GameScene'); }
+  
   preload(){
-    // --- Placeholder images, replace later ---
-    this.load.spritesheet('player','https://i.ibb.co/0t6Nqsy/ekansh.png',{frameWidth:150, frameHeight:150});
-    this.load.spritesheet('monster','https://i.ibb.co/2nK4PSg/kaju.png',{frameWidth:150, frameHeight:150});
+    // Placeholder images (replace later)
+    this.load.image('player','https://i.ibb.co/0t6Nqsy/ekansh.png'); // replace with your image
+    this.load.image('monster','https://i.ibb.co/2nK4PSg/kaju.png'); // replace with your image
     this.load.image('coin','https://i.ibb.co/wK0QWqk/coin.png'); 
     this.load.image('obstacle','https://i.ibb.co/Wk8SL1d/obstacle.png'); 
     this.load.audio('coinS','https://cdn.pixabay.com/download/audio/2021/09/14/audio_6c84a49a03.mp3?filename=collect-coin-1-190131.mp3');
@@ -50,7 +50,7 @@ class TempleRunScene extends Phaser.Scene {
     this.coinSound = this.sound.add('coinS',{volume:0.6});
     this.jumpSound = this.sound.add('jumpS',{volume:0.5});
 
-    // --- Game Variables ---
+    // Variables
     this.lanes = [180,400,620];
     this.playerLane = 1;
     this.jumpPower = -400;
@@ -72,12 +72,6 @@ class TempleRunScene extends Phaser.Scene {
     this.monster = this.physics.add.sprite(this.lanes[0],600,'monster').setScale(0.5);
     this.monster.body.setImmovable(true);
 
-    // Animations
-    this.anims.create({key:'run', frames:this.anims.generateFrameNumbers('player',{start:0,end:3}), frameRate:8, repeat:-1});
-    this.anims.create({key:'monsterRun', frames:this.anims.generateFrameNumbers('monster',{start:0,end:3}), frameRate:6, repeat:-1});
-    this.player.play('run');
-    this.monster.play('monsterRun');
-
     // Groups
     this.obstacles = this.physics.add.group();
     this.coins = this.physics.add.group();
@@ -95,7 +89,7 @@ class TempleRunScene extends Phaser.Scene {
     document.getElementById('jump').onclick = ()=>this.jump();
 
     // Spawners
-    this.time.addEvent({delay:2200, loop:true, callback:this.spawnObstacle, callbackScope:this});
+    this.time.addEvent({delay:2000, loop:true, callback:this.spawnObstacle, callbackScope:this});
     this.time.addEvent({delay:1300, loop:true, callback:this.spawnCoin, callbackScope:this});
 
     // Collisions
@@ -103,28 +97,47 @@ class TempleRunScene extends Phaser.Scene {
     this.physics.add.overlap(this.player,this.coins,this.collectCoin,null,this);
   }
 
-  moveLeft(){if(this.isGameOver) return; if(this.playerLane>0){this.playerLane--; this.tweens.add({targets:this.player,x:this.lanes[this.playerLane],duration:200,ease:'Power2'});}}
-  moveRight(){if(this.isGameOver) return; if(this.playerLane<2){this.playerLane++; this.tweens.add({targets:this.player,x:this.lanes[this.playerLane],duration:200,ease:'Power2'});}}
+  moveLeft(){if(this.isGameOver) return; if(this.playerLane>0){this.playerLane--; this.tweens.add({targets:this.player,x:this.lanes[this.playerLane],duration:150,ease:'Power2'});}}
+  moveRight(){if(this.isGameOver) return; if(this.playerLane<2){this.playerLane++; this.tweens.add({targets:this.player,x:this.lanes[this.playerLane],duration:150,ease:'Power2'});}}
   jump(){if(this.isGameOver) return; if(this.player.body.blocked.down){this.player.body.setVelocityY(this.jumpPower); this.jumpSound.play();}}
 
   spawnObstacle(){if(this.isGameOver) return; const lane = Phaser.Math.Between(0,2); const obs = this.physics.add.sprite(this.lanes[lane],-20,'obstacle').setScale(0.25); obs.body.setVelocityY(this.speed*80); obs.body.setAllowGravity(false); this.obstacles.add(obs);}
   spawnCoin(){if(this.isGameOver) return; const lane = Phaser.Math.Between(0,2); const coin = this.physics.add.sprite(this.lanes[lane],-20,'coin').setScale(0.25); coin.body.setVelocityY(this.speed*70); coin.body.setAllowGravity(false); this.coins.add(coin);}
   collectCoin(player,coin){coin.destroy(); this.coinSound.play(); this.score+=10; this.scoreText.setText('Score: '+Math.floor(this.score));}
 
-  gameOver(){if(this.isGameOver) return; this.isGameOver=true; document.getElementById('controls').style.display='none'; this.add.text(150,260,'GAME OVER! 😢\nPress R or Refresh to Restart',{fontSize:'26px', fill:'#fff', align:'center'}); this.input.keyboard.once('keydown-R', ()=>this.scene.start('StartScene'));}
+  gameOver(){
+    if(this.isGameOver) return;
+    this.isGameOver = true;
+    document.getElementById('controls').style.display='none';
+    this.add.text(150,260,'GAME OVER! 😢\nPress R or Refresh to Restart',{fontSize:'26px', fill:'#fff', align:'center'});
+    this.input.keyboard.once('keydown-R', ()=>this.scene.start('StartScene'));
+  }
 
   update(){
     if(this.isGameOver) return;
+
+    // Remove out-of-screen objects
     this.obstacles.children.iterate(c=>{if(c.y>600)c.destroy();});
     this.coins.children.iterate(c=>{if(c.y>600)c.destroy();});
-    this.score+=0.05; this.scoreText.setText('Score: '+Math.floor(this.score));
-    if(this.score%200===0 && this.speed<10) this.speed+=0.3;
-    this.monster.x=Phaser.Math.Linear(this.monster.x,this.lanes[this.playerLane],0.02);
-    this.monster.y-=0.2; // slow chase effect
+
+    // Increment score and speed
+    this.score+=0.05;
+    this.scoreText.setText('Score: '+Math.floor(this.score));
+    if(this.score % 200 === 0 && this.speed<10) this.speed+=0.3;
+
+    // Monster follows player slowly
+    this.monster.x = Phaser.Math.Linear(this.monster.x,this.lanes[this.playerLane],0.02);
   }
 }
 
-const config = {type:Phaser.AUTO,width:800,height:600,backgroundColor:'#111',physics:{default:'arcade',arcade:{debug:false}},scene:[StartScene,TempleRunScene]};
+const config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  physics: { default:'arcade', arcade:{debug:false} },
+  scene: [StartScene,GameScene]
+};
+
 const game = new Phaser.Game(config);
 </script>
 
