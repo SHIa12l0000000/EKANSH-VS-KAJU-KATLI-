@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Runner — Ekansh vs KAJU KATTRI</title>
+  <style>
+    html,body{height:100%;margin:0;background:#071019;color:#fff;font-family:Inter,Arial,sans-serif}
+    #game-container{width:100%;height:100vh;display:flex;align-items:center;justify-content:center}
+    .hud{position:absolute;left:12px;top:12px;z-index:20;background:rgba(0,0,0,0.35);padding:8px;border-radius:6px}
+    .credit{position:absolute;right:12px;top:12px;background:rgba(0,0,0,0.35);padding:8px;border-radius:6px}
+    .instructions{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.35);padding:8px;border-radius:6px}
+    button{font-size:16px}
+  </style>
+  <!-- Phaser 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div class="hud">Score: <span id="score">0</span> &nbsp; Distance: <span id="dist">0</span></div>
+  <div class="credit">Player: <strong>ekansh</strong> • Monster: <strong>KAJU KATTRI</strong></div>
+  <div class="instructions">Controls: ← → or A/D to change lane, ↑ / Space to jump. Swipe left/right/up on mobile. Press R to restart after Game Over.</div>
+
+<script>
+/*
+ Improved single-file Phaser 3 endless runner.
+ - Fixed physics: player, obstacles and monster use Arcade physics correctly
+ - Smooth lane changes using tweens
+ - Proper jump using arcade velocity and gravity
+ - Coins and obstacles spawn reliably and are cleaned up
+ - Monster chases from behind and catches player -> Game Over
+ - Mobile swipe support
+
+ Save as index.html and open in a modern browser (Chrome/Edge/Firefox). Works on desktop & mobile.
+*/
+
+const LANE_COUNT = 3;
+const LANE_SPACING = 140; // horizontal space between lanes
+
+class RunnerScene extends Phaser.Scene {
+  constructor(){ super({ key: 'RunnerScene' }); }
+
+  preload(){}
+
+  create(){
+    const w = this.scale.width; const h = this.scale.height;
+
+    // Gameplay parameters
+    this.baseSpeed = 380;           // obstacle downward speed (px/sec)
+    this.distance = 0;
+    this.score = 0;
+    this.coinsCollected = 0;
+    this.gameOver = false;
+
+    // Lanes X coordinates centered
+    this.laneX = [];
+    const center = w/2;
+    const startX = center - LANE_SPACING;
+    for(let i=0;i<LANE_COUNT;i++) this.laneX.push(startX + i*LANE_SPACING);
+
+    // Background simple
+    this.add.rectangle(w/2,h/2,w,h,'#042028');
+
+    // Road stripes
+    for(let i=0;i<LANE_COUNT;i++){
+      this.add.rectangle(this.laneX[i], h/2, 120, h, 0x08393a).setStrokeStyle(4,0x052626);
+    }
+
+    // Physics world gravity (for jump)
+    this.physics.world.gravity.y = 1600;
+
+    // Create player as a rectangle with physics body
+    this.playerLane = 1; // start middle
+    this.player = this.add.rectangle(this.laneX[this.playerLane], h - 140, 48, 72, 0x00aaff);
+    this.playerName = this.add.text(this.player.x, this.player.y - 60, 'ekansh', {font:'16px Arial', color:'#ffffff'}).setOrigin(0.5);
+    this.physics.add.existing(this.player);
+    this.playerBody = this.player.body;
+    this.playerBody.setCollideWorldBounds(true);
+    this.playerBody.setSize(48,72);
+    this.playerBody.setMaxVelocity(600, 1000);
+
+    // Player ground flag controlled by touching bottom
+    this.groundY = h - 140; // resting y
+
+    // Monster (chaser)
+    this.monster = this.add.rectangle(this.laneX[0], h + 120, 90, 90, 0xff5e5e);
+    this.monsterName = this.add.text(this.monster.x, this.monster.y - 70, 'KAJU KATTRI', {font:'14px Arial', color:'#fff'}).setOrigin(0.5);
+    this.physics.add.existing(this.monster);
+    this.monsterBody = this.monster.body;
+    this.monsterBody.setImmovable(true);
+    this.monsterSpeed = 160; // px/sec upward towards player each second
+
+    // Groups
+    this.obstacles = this.physics.add.group();
+    this.coins = this.physics.add.group();
+
+    // Colliders / Overlaps
+    this.physics.add.overlap(this.player, this.obstacles, this.onHitObstacle, null, this);
+    this.physics.add.overlap(this.player, this.coins, this.onCollectCoin, null, this);
+
+    // Input
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.input.keyboard.on('keydown-R', ()=>{ if(this.gameOver) this.scene.restart(); });
+
+    // Mobile swipe
+    this.input.on('pointerdown', (p)=>{ this.swipeStart = {x:p.x,y:p.y,time:Date.now()}; });
+    this.input.on('pointerup', (p)=>{
+      if(!this.swipeStart) return; const dx = p.x - this.swipeStart.x; const dy = p.y - this.swipeStart.y;
+      if(Math.abs(dx) > Math.abs(dy)){
+        if(dx > 40) this.changeLane(1); else if(dx < -40) this.changeLane(-1);
+      } else {
+        if(dy < -40) this.tryJump();
+      }
+      this.swipeStart = null;
+    });
+
+    // Timers for spawning
+    this.nextSpawn = 0;
+    this.spawnInterval = 800; // ms base
+
+    // UI DOM elements (kept in sync)
+    this.scoreEl = document.getElementById('score'); this.distEl = document.getElementById('dist');
+
+    // Small floor invisible body for landing detection
+    this.floor = this.add.zone(w/2, this.groundY + 40, w, 10);
+    this.physics.add.existing(this.floor, true);
+    this.physics.add.collider(this.player, this.floor);
+
+    // keep track of last time for distance calc
+    this.lastTime = 0;
+  }
+
+  update(time, delta){
+    if(this.gameOver) return;
+    // Handle input for lane change and jump
+    if(Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.keyA)) this.changeLane(-1);
+    if(Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.keyD)) this.changeLane(1);
+    if(Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.cursors.space)) this.tryJump();
+
+    // Smoothly keep name above player
+    this.playerName.x = Phaser.Math.Linear(this.playerName.x, this.player.x, 0.25);
+    this.playerName.y = this.player.y - 60;
+
+    // Keep player x near lane via tweening if not already moving
+    // (player body is controlled by physics for jump only)
+    const targetX = this.laneX[this.playerLane];
+    if(Math.abs(this.player.x - targetX) > 2 && !this.tweeningLane){
+      this.tweeningLane = true;
+      this.tweens.add({ targets: [this.player, this.playerName], x: targetX, duration: 160, ease: 'Power2', onComplete: ()=>{ this.tweeningLane = false; } });
+    }
+
+    // Spawn obstacles/coins
+    this.nextSpawn -= delta;
+    if(this.nextSpawn <= 0){
+      this.spawnItem();
+      // spawn interval scales down slightly as distance increases
+      const interval = Phaser.Math.Clamp(this.spawnInterval - Math.floor(this.distance/300)*40, 300, 1200);
+      this.nextSpawn = interval;
+    }
+
+    // Move existing obstacles and coins downward by setting velocity
+    const speed = this.baseSpeed + Math.floor(this.distance/200) * 20; // increase pace with distance
+    Phaser.Actions.Call(this.obstacles.getChildren(), (o)=>{ o.body.setVelocityY(speed); if(o.y > this.scale.height + 80) o.destroy(); });
+    Phaser.Actions.Call(this.coins.getChildren(), (c)=>{ c.body.setVelocityY(speed); if(c.y > this.scale.height + 80) c.destroy(); });
+
+    // Monster movement: move upward toward player y and match player's lane slowly
+    this.monsterBody.setVelocityY(- (this.monsterSpeed + Math.floor(this.distance/400)*10));
+    const desiredMonsterX = this.laneX[Math.max(0, Math.min(LANE_COUNT-1, this.playerLane))];
+    this.monster.x = Phaser.Math.Linear(this.monster.x, desiredMonsterX, 0.015);
+    this.monsterName.x = this.monster.x; this.monsterName.y = this.monster.y - 70;
+
+    // If monster reaches near player's y -> caught
+    if(this.monster.y <= this.player.y + 60){ this.triggerGameOver(); }
+
+    // Update distance
+    this.distance += (speed * (delta/1000));
+    this.scoreEl.innerText = this.score + ' (Coins:' + this.coinsCollected + ')';
+    this.distEl.innerText = Math.floor(this.distance);
+  }
+
+  changeLane(dir){
+    const newLane = Phaser.Math.Clamp(this.playerLane + dir, 0, LANE_COUNT-1);
+    if(newLane === this.playerLane) return;
+    this.playerLane = newLane;
+  }
+
+  tryJump(){
+    // allow jump only if touching floor (simple check: y near ground)
+    if(Math.abs(this.player.y - this.groundY) < 6){
+      this.playerBody.setVelocityY(-550);
+    }
+  }
+
+  spawnItem(){
+    const lane = Phaser.Math.Between(0, LANE_COUNT-1);
+    const kind = Phaser.Math.Between(0, 100);
+    const x = this.laneX[lane];
+    const y = -60;
+    if(kind < 65){
+      // obstacle
+      const obs = this.add.rectangle(x, y, 90, 44, 0x8b5a2b);
+      this.physics.add.existing(obs);
+      obs.body.setImmovable(true);
+      obs.body.setAllowGravity(false);
+      this.obstacles.add(obs);
+    } else {
+      // coin
+      const coin = this.add.circle(x, y, 12, 0xffd454);
+      this.physics.add.existing(coin);
+      coin.body.setImmovable(true);
+      coin.body.setAllowGravity(false);
+      this.coins.add(coin);
+    }
+  }
+
+  onHitObstacle(player, obstacle){
+    // If player is sufficiently above obstacle we treat as jump over
+    if(this.player.y + 20 < obstacle.y) return;
+    // else collision
+    obstacle.destroy();
+    this.score = Math.max(0, this.score - 6);
+    // small camera shake
+    this.cameras.main.shake(160, 0.01);
+  }
+
+  onCollectCoin(player, coin){ coin.destroy(); this.coinsCollected++; this.score += 12; }
+
+  triggerGameOver(){
+    if(this.gameOver) return;
+    this.gameOver = true;
+    // Freeze physics
+    this.physics.pause();
+    // Display Game Over panel
+    const w = this.scale.width, h = this.scale.height;
+    const panel = this.add.rectangle(w/2, h/2, 480, 240, 0x000000, 0.6).setDepth(50);
+    this.add.text(w/2, h/2 - 40, 'Game Over', {font:'36px Arial', color:'#ffffff'}).setOrigin(0.5).setDepth(51);
+    this.add.text(w/2, h/2, 'Score: ' + this.score + '   Coins: ' + this.coinsCollected, {font:'18px Arial', color:'#ffffff'}).setOrigin(0.5).setDepth(51);
+    this.add.text(w/2, h/2 + 50, 'Press R to Restart', {font:'16px Arial', color:'#cccccc'}).setOrigin(0.5).setDepth(51);
+  }
+}
+
+const config = {
+  type: Phaser.AUTO,
+  parent: 'game-container',
+  width: Math.min(900, window.innerWidth),
+  height: Math.min(700, window.innerHeight),
+  backgroundColor: '#071019',
+  physics: { default: 'arcade', arcade: { debug: false } },
+  scene: [RunnerScene]
+};
+
+const game = new Phaser.Game(config);
+
+window.addEventListener('resize', ()=>{ game.scale.resize(Math.min(900, window.innerWidth), Math.min(700, window.innerHeight)); });
+
+</script>
+</body>
+</html>
