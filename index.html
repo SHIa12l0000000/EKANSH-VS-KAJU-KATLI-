@@ -1,260 +1,312 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Runner — Ekansh vs KAJU KATTRI</title>
-  <style>
-    html,body{height:100%;margin:0;background:#071019;color:#fff;font-family:Inter,Arial,sans-serif}
-    #game-container{width:100%;height:100vh;display:flex;align-items:center;justify-content:center}
-    .hud{position:absolute;left:12px;top:12px;z-index:20;background:rgba(0,0,0,0.35);padding:8px;border-radius:6px}
-    .credit{position:absolute;right:12px;top:12px;background:rgba(0,0,0,0.35);padding:8px;border-radius:6px}
-    .instructions{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.35);padding:8px;border-radius:6px}
-    button{font-size:16px}
-  </style>
-  <!-- Phaser 3 -->
+  <title>Temple Run — Ekansh vs KAJU KATTRI</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    :root{--accent:#00e6a8;--bg:#071226;--panel:rgba(255,255,255,0.06);--glass:rgba(255,255,255,0.06)}
+    html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Arial,Helvetica,sans-serif;color:#fff}
+    #game-container{width:100%;height:100vh;display:flex;align-items:center;justify-content:center}
+    .ui-top{position:fixed;left:12px;top:12px;display:flex;gap:12px;align-items:center;z-index:40}
+    .panel{background:var(--panel);backdrop-filter:blur(6px);padding:10px 14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+    .title{font-weight:700;color:var(--accent)}
+    .controls{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;display:flex;gap:18px;z-index:40}
+    .btn{width:78px;height:78px;border-radius:50%;border:none;background:linear-gradient(180deg,#1f1f1f, #111);color:#fff;font-size:24px;box-shadow:0 8px 20px rgba(0,0,0,0.5)}
+    .btn:active{transform:scale(0.98)}
+    .small-btn{width:44px;height:44px;border-radius:10px}
+    #mobile-hint{position:fixed;left:12px;bottom:12px;font-size:13px;opacity:0.9}
+    .center-screen{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50}
+    .start-card{width:min(420px,92vw);padding:22px;border-radius:14px;text-align:center;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+    .start-title{font-size:26px;margin-bottom:8px;color:var(--accent);font-weight:800}
+    .muted{opacity:0.8;font-size:14px}
+    .highscore{color:#ffdd57;font-weight:700}
+  </style>
 </head>
 <body>
   <div id="game-container"></div>
-  <div class="hud">Score: <span id="score">0</span> &nbsp; Distance: <span id="dist">0</span></div>
-  <div class="credit">Player: <strong>ekansh</strong> • Monster: <strong>KAJU KATTRI</strong></div>
-  <div class="instructions">Controls: ← → or A/D to change lane, ↑ / Space to jump. Swipe left/right/up on mobile. Press R to restart after Game Over.</div>
+
+  <div class="ui-top">
+    <div class="panel" id="score-panel">Score: <span id="score">0</span></div>
+    <div class="panel">Distance: <span id="dist">0</span></div>
+    <div class="panel">High: <span id="high">0</span></div>
+    <div style="width:10px"></div>
+    <button class="small-btn panel" id="pauseBtn">⏸</button>
+  </div>
+
+  <div id="mobile-hint" class="muted">Swipe left/right/up or use buttons below</div>
+
+  <div class="controls" id="touchControls" style="display:none">
+    <button id="leftBtn" class="btn">◀</button>
+    <button id="jumpBtn" class="btn">▲</button>
+    <button id="rightBtn" class="btn">▶</button>
+  </div>
+
+  <div class="center-screen" id="startCard">
+    <div class="start-card">
+      <div class="start-title">Temple Run — Ekansh vs KAJU KATTRI</div>
+      <div class="muted">A mobile-first, friendly runner. Collect coins, avoid obstacles.<br/>Player: <strong>ekansh</strong> • Monster: <strong>KAJU KATTRI</strong></div>
+      <div style="height:16px"></div>
+      <div>High score: <span id="start-high" class="highscore">0</span></div>
+      <div style="height:18px"></div>
+      <button id="startBtn" class="btn" style="width:220px;height:56px;font-size:18px">Start Game</button>
+      <div style="height:10px"></div>
+      <div class="muted">Sound: <label><input id="soundToggle" type="checkbox" checked> On</label></div>
+    </div>
+  </div>
 
 <script>
-/*
- Improved single-file Phaser 3 endless runner.
- - Fixed physics: player, obstacles and monster use Arcade physics correctly
- - Smooth lane changes using tweens
- - Proper jump using arcade velocity and gravity
- - Coins and obstacles spawn reliably and are cleaned up
- - Monster chases from behind and catches player -> Game Over
- - Mobile swipe support
+// Single-file Phaser 3 runner with mobile-first UI, high-score save, adaptive AI, and nicer UI
+const IS_MOBILE = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth <= 820;
 
- Save as index.html and open in a modern browser (Chrome/Edge/Firefox). Works on desktop & mobile.
-*/
+const GAME_WIDTH = Math.min(900, window.innerWidth);
+const GAME_HEIGHT = Math.min(700, window.innerHeight);
 
-const LANE_COUNT = 3;
-const LANE_SPACING = 140; // horizontal space between lanes
+// Save/Load high score
+function loadHigh() { return Number(localStorage.getItem('ekansh_high') || 0); }
+function saveHigh(v){ localStorage.setItem('ekansh_high', String(v)); }
 
-class RunnerScene extends Phaser.Scene {
-  constructor(){ super({ key: 'RunnerScene' }); }
+class Boot extends Phaser.Scene { create(){ this.scene.start('Start'); } }
 
-  preload(){}
+class Start extends Phaser.Scene{
+  constructor(){ super('Start'); }
+  preload() { }
+  create(){
+    // show start UI from DOM
+    document.getElementById('startCard').style.display = 'block';
+    document.getElementById('start-high').innerText = loadHigh();
+
+    // start btn
+    document.getElementById('startBtn').onclick = () => {
+      const soundOn = document.getElementById('soundToggle').checked;
+      this.scene.start('Main', { soundOn });
+      document.getElementById('startCard').style.display = 'none';
+    };
+
+    // if mobile, show controls
+    if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex';
+    else document.getElementById('mobile-hint').style.display = 'none';
+  }
+}
+
+class Main extends Phaser.Scene{
+  constructor(){ super('Main'); }
+  init(data){ this.soundOn = data.soundOn; }
+
+  preload(){
+    // short free sound loops (pixabay) - remote files (may be blocked); fallbacks handled
+    this.load.audio('bgm','https://cdn.pixabay.com/download/audio/2023/03/30/audio_b2a0c5e7de.mp3?filename=running-game-loop-145381.mp3');
+    this.load.audio('coin','https://cdn.pixabay.com/download/audio/2021/09/14/audio_6c84a49a03.mp3?filename=collect-coin-1-190131.mp3');
+    this.load.audio('jump','https://cdn.pixabay.com/download/audio/2021/09/07/audio_3b6c6d7c22.mp3?filename=jump-142094.mp3');
+  }
 
   create(){
-    const w = this.scale.width; const h = this.scale.height;
+    // UI DOM refs
+    this.scoreEl = document.getElementById('score'); this.distEl = document.getElementById('dist'); this.highEl = document.getElementById('high');
+    this.highScore = loadHigh(); this.highEl.innerText = this.highScore;
 
-    // Gameplay parameters
-    this.baseSpeed = 380;           // obstacle downward speed (px/sec)
-    this.distance = 0;
-    this.score = 0;
-    this.coinsCollected = 0;
-    this.gameOver = false;
+    // Adaptive difficulty state (AI helper)
+    this.lossStreak = Number(localStorage.getItem('ekansh_loss') || 0);
+    this.helperMode = false;
+    if(this.lossStreak >= 2) { this.helperMode = true; }
 
-    // Lanes X coordinates centered
-    this.laneX = [];
-    const center = w/2;
-    const startX = center - LANE_SPACING;
-    for(let i=0;i<LANE_COUNT;i++) this.laneX.push(startX + i*LANE_SPACING);
-
-    // Background simple
-    this.add.rectangle(w/2,h/2,w,h,'#042028');
-
-    // Road stripes
-    for(let i=0;i<LANE_COUNT;i++){
-      this.add.rectangle(this.laneX[i], h/2, 120, h, 0x08393a).setStrokeStyle(4,0x052626);
+    // Background parallax - simple rectangles
+    this.bgGroup = this.add.group();
+    for(let i=0;i<6;i++){
+      const rect = this.add.rectangle(i*(GAME_WIDTH/3), GAME_HEIGHT/2, GAME_WIDTH/3 + 40, GAME_HEIGHT, 0x042732).setOrigin(0,0.5).setAlpha(0.06 + i*0.02);
+      this.bgGroup.add(rect);
     }
 
-    // Physics world gravity (for jump)
-    this.physics.world.gravity.y = 1600;
+    // Lanes: compute responsive positions
+    const center = GAME_WIDTH/2; const spacing = Math.min(150, GAME_WIDTH/6);
+    this.lanes = [center - spacing, center, center + spacing];
 
-    // Create player as a rectangle with physics body
-    this.playerLane = 1; // start middle
-    this.player = this.add.rectangle(this.laneX[this.playerLane], h - 140, 48, 72, 0x00aaff);
-    this.playerName = this.add.text(this.player.x, this.player.y - 60, 'ekansh', {font:'16px Arial', color:'#ffffff'}).setOrigin(0.5);
+    // Ground y (responsive)
+    this.groundY = GAME_HEIGHT - 120;
+
+    // Player
+    this.playerLane = 1;
+    this.player = this.add.rectangle(this.lanes[this.playerLane], this.groundY - 40, 46, 84, 0x00e6a8).setDepth(5);
+    this.playerName = this.add.text(this.player.x, this.player.y - 70, 'ekansh', {font:'16px Inter',color:'#fff'}).setOrigin(0.5).setDepth(6);
     this.physics.add.existing(this.player);
-    this.playerBody = this.player.body;
-    this.playerBody.setCollideWorldBounds(true);
-    this.playerBody.setSize(48,72);
-    this.playerBody.setMaxVelocity(600, 1000);
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(46,84);
+    this.player.body.setGravityY(1600);
 
-    // Player ground flag controlled by touching bottom
-    this.groundY = h - 140; // resting y
-
-    // Monster (chaser)
-    this.monster = this.add.rectangle(this.laneX[0], h + 120, 90, 90, 0xff5e5e);
-    this.monsterName = this.add.text(this.monster.x, this.monster.y - 70, 'KAJU KATTRI', {font:'14px Arial', color:'#fff'}).setOrigin(0.5);
-    this.physics.add.existing(this.monster);
-    this.monsterBody = this.monster.body;
-    this.monsterBody.setImmovable(true);
-    this.monsterSpeed = 160; // px/sec upward towards player each second
+    // Monster (chaser) starts off-screen bottom and slowly approaches
+    this.monster = this.add.rectangle(this.lanes[0], GAME_HEIGHT + 200, 110, 100, 0xff4d4d).setDepth(4);
+    this.monsterName = this.add.text(this.monster.x, this.monster.y - 70, 'KAJU KATTRI', {font:'14px Inter',color:'#fff'}).setOrigin(0.5).setDepth(6);
+    this.physics.add.existing(this.monster); this.monster.body.setImmovable(true);
 
     // Groups
     this.obstacles = this.physics.add.group();
     this.coins = this.physics.add.group();
 
-    // Colliders / Overlaps
-    this.physics.add.overlap(this.player, this.obstacles, this.onHitObstacle, null, this);
-    this.physics.add.overlap(this.player, this.coins, this.onCollectCoin, null, this);
+    // Sounds
+    this.sfx = { coin: null, jump: null, bgm: null };
+    if(this.soundOn){
+      this.sfx.bgm = this.sound.add('bgm', {volume:0.25, loop:true});
+      this.sfx.coin = this.sound.add('coin', {volume:0.5});
+      this.sfx.jump = this.sound.add('jump', {volume:0.4});
+      try{ this.sfx.bgm.play(); } catch(e){}
+    }
+
+    // HUD text inside canvas for aesthetics
+    this.canvasHUD = this.add.text(GAME_WIDTH - 16, 16, '', {font:'14px Inter', color:'#fff'}).setOrigin(1,0).setDepth(10);
 
     // Input
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-    this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-    this.input.keyboard.on('keydown-R', ()=>{ if(this.gameOver) this.scene.restart(); });
+    this.keyA = this.input.keyboard.addKey('A'); this.keyD = this.input.keyboard.addKey('D');
+    this.input.keyboard.on('keydown-R', ()=>this.restart());
+    this.input.keyboard.on('keydown-P', ()=>this.togglePause());
+
+    // Touch buttons events
+    document.getElementById('leftBtn').onclick = ()=>this.changeLane(-1);
+    document.getElementById('rightBtn').onclick = ()=>this.changeLane(1);
+    document.getElementById('jumpBtn').onclick = ()=>this.tryJump();
+
+    // Pause button
+    document.getElementById('pauseBtn').onclick = ()=>this.togglePause();
 
     // Mobile swipe
-    this.input.on('pointerdown', (p)=>{ this.swipeStart = {x:p.x,y:p.y,time:Date.now()}; });
-    this.input.on('pointerup', (p)=>{
-      if(!this.swipeStart) return; const dx = p.x - this.swipeStart.x; const dy = p.y - this.swipeStart.y;
-      if(Math.abs(dx) > Math.abs(dy)){
-        if(dx > 40) this.changeLane(1); else if(dx < -40) this.changeLane(-1);
-      } else {
-        if(dy < -40) this.tryJump();
-      }
-      this.swipeStart = null;
+    this.input.on('pointerdown', p=>this._swipeStart = {x:p.x,y:p.y,t:Date.now()});
+    this.input.on('pointerup', p=>{
+      if(!this._swipeStart) return; const dx = p.x - this._swipeStart.x; const dy = p.y - this._swipeStart.y;
+      if(Math.abs(dx) > Math.abs(dy)){ if(dx>40) this.changeLane(1); else if(dx<-40) this.changeLane(-1); }
+      else{ if(dy < -40) this.tryJump(); }
+      this._swipeStart = null;
     });
 
-    // Timers for spawning
-    this.nextSpawn = 0;
-    this.spawnInterval = 800; // ms base
+    // Collisions
+    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+    this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
 
-    // UI DOM elements (kept in sync)
-    this.scoreEl = document.getElementById('score'); this.distEl = document.getElementById('dist');
+    // Spawn timers (adaptive using helper mode)
+    this.baseSpawn = this.helperMode ? 1400 : 900; // helper mode makes it easier
+    this.spawnTimer = 0; this.spawnInterval = this.baseSpawn;
+    this.coinTimer = 0; this.coinInterval = 1100;
 
-    // Small floor invisible body for landing detection
-    this.floor = this.add.zone(w/2, this.groundY + 40, w, 10);
-    this.physics.add.existing(this.floor, true);
+    // Movement speed for obstacles (px/sec)
+    this.worldSpeedBase = this.helperMode ? 190 : 260;
+
+    // Distance & score
+    this.distance = 0; this.score = 0; this.coinsCollected = 0;
+
+    // Camera shake ready
+    this.cameras.main.setBackgroundColor('#071226');
+
+    // small ground zone for landing detection
+    this.floor = this.add.zone(GAME_WIDTH/2, this.groundY + 10, GAME_WIDTH, 20); this.physics.add.existing(this.floor, true);
     this.physics.add.collider(this.player, this.floor);
 
-    // keep track of last time for distance calc
-    this.lastTime = 0;
+    // Keep UI DOM high score in sync
+    this.highEl.innerText = this.highScore;
+    document.getElementById('score-panel').innerText = 'Score: 0';
+
+    // Show/hide keyboard hints depending on device
+    if(IS_MOBILE){ document.getElementById('mobile-hint').style.display = 'block'; } else { document.getElementById('mobile-hint').style.display = 'none'; }
   }
 
-  update(time, delta){
-    if(this.gameOver) return;
-    // Handle input for lane change and jump
+  changeLane(dir){ if(this.isGameOver) return; const newLane = Phaser.Math.Clamp(this.playerLane + dir, 0, 2); if(newLane===this.playerLane) return; this.playerLane = newLane; this.tweens.add({ targets:[this.player,this.playerName], x: this.lanes[this.playerLane], duration: 140, ease:'Cubic.Out' }); }
+  tryJump(){ if(this.isGameOver) return; if(Math.abs(this.player.y - (this.groundY - 40)) < 6){ this.player.body.setVelocityY(-520); if(this.sfx.jump) this.sfx.jump.play(); }}
+
+  spawnObstacle(){ const lane = Phaser.Math.Between(0,2); const x = this.lanes[lane]; const y = -60; const rect = this.add.rectangle(x,y,92,54,0xff8b3d); this.physics.add.existing(rect); rect.body.setAllowGravity(false); rect.body.setVelocityY(this.worldSpeedBase + Phaser.Math.Between(-30,30)); rect.setDepth(3); this.obstacles.add(rect); }
+  spawnCoin(){ const lane = Phaser.Math.Between(0,2); const x = this.lanes[lane]; const y = -80; const coin = this.add.circle(x,y,12,0xffe16b); this.physics.add.existing(coin); coin.body.setAllowGravity(false); coin.body.setVelocityY(this.worldSpeedBase - 10); coin.setDepth(4); this.coins.add(coin); }
+
+  collectCoin(player, coin){ coin.destroy(); this.coinsCollected++; this.score += 8; if(this.sfx.coin) this.sfx.coin.play(); document.getElementById('score-panel').innerText = 'Score: ' + Math.floor(this.score); }
+
+  hitObstacle(){ // if player is in air above obstacle, ignore
+    // simple check: if player y < obstacle y - 10 then they jumped over
+    // otherwise game over
+    this.triggerGameOver(); }
+
+  triggerGameOver(){ if(this.isGameOver) return; this.isGameOver = true; // stop sounds
+    if(this.sfx.bgm) this.sfx.bgm.stop();
+    // update highscore
+    if(Math.floor(this.score) > this.highScore){ this.highScore = Math.floor(this.score); saveHigh(this.highScore); }
+    // adaptive helper: update loss streak
+    if(Math.floor(this.score) < 30){ this.lossStreak++; } else { this.lossStreak = 0; }
+    localStorage.setItem('ekansh_loss', String(this.lossStreak));
+
+    // show game over UI overlay (simple)
+    const style = { font:'26px Inter', color:'#fff', align:'center' };
+    this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, Math.min(500,GAME_WIDTH-40), 220, 0x000000, 0.6).setDepth(50);
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 30, 'GAME OVER', {font:'36px Inter', color: '#ff6b6b'}).setOrigin(0.5).setDepth(51);
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 10, 'Score: ' + Math.floor(this.score) + '   Coins: ' + this.coinsCollected, {font:'18px Inter', color:'#fff'}).setOrigin(0.5).setDepth(51);
+    const restart = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 60, 'Tap to Restart', {font:'16px Inter', color:'#ddd'}).setOrigin(0.5).setDepth(51);
+    // save high visible
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 92, 'High: ' + this.highScore, {font:'14px Inter', color:'#ffdd57'}).setOrigin(0.5).setDepth(51);
+
+    // remove touch controls
+    document.getElementById('touchControls').style.display = 'none';
+    // restart on pointerdown
+    this.input.once('pointerdown', ()=>{ this.scene.restart(); document.getElementById('touchControls').style.display = IS_MOBILE ? 'flex' : 'none'; });
+  }
+
+  togglePause(){ if(this.isGameOver) return; this.scene.isPaused() ? this.scene.resume() : this.scene.pause(); if(this.scene.isPaused()) document.getElementById('pauseBtn').innerText = '▶'; else document.getElementById('pauseBtn').innerText = '⏸'; }
+
+  restart(){ this.scene.restart(); }
+
+  update(time, dt){ if(this.isGameOver) return;
+    // keyboard input
     if(Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.keyA)) this.changeLane(-1);
     if(Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.keyD)) this.changeLane(1);
     if(Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.cursors.space)) this.tryJump();
 
-    // Smoothly keep name above player
-    this.playerName.x = Phaser.Math.Linear(this.playerName.x, this.player.x, 0.25);
-    this.playerName.y = this.player.y - 60;
+    // background parallax motion
+    Phaser.Actions.IncY(this.bgGroup.getChildren(), -0.05 - (this.distance/20000));
+    this.bgGroup.getChildren().forEach((r)=>{ if(r.y < -GAME_HEIGHT) r.y = GAME_HEIGHT + 100; });
 
-    // Keep player x near lane via tweening if not already moving
-    // (player body is controlled by physics for jump only)
-    const targetX = this.laneX[this.playerLane];
-    if(Math.abs(this.player.x - targetX) > 2 && !this.tweeningLane){
-      this.tweeningLane = true;
-      this.tweens.add({ targets: [this.player, this.playerName], x: targetX, duration: 160, ease: 'Power2', onComplete: ()=>{ this.tweeningLane = false; } });
-    }
+    // spawn obstacles & coins
+    this.spawnTimer += dt; this.coinTimer += dt;
+    // adapt difficulty slightly as distance grows
+    const speedFactor = 1 + Math.floor(this.distance / 800) * 0.05;
+    this.worldSpeedBase = (this.helperMode ? 180 : 260) * speedFactor;
 
-    // Spawn obstacles/coins
-    this.nextSpawn -= delta;
-    if(this.nextSpawn <= 0){
-      this.spawnItem();
-      // spawn interval scales down slightly as distance increases
-      const interval = Phaser.Math.Clamp(this.spawnInterval - Math.floor(this.distance/300)*40, 300, 1200);
-      this.nextSpawn = interval;
-    }
+    if(this.spawnTimer > this.spawnInterval){ this.spawnTimer = 0; this.spawnInterval = Phaser.Math.Clamp(this.baseSpawn - Math.floor(this.distance/400)*30, 420, 1400); this.spawnObstacle(); }
+    if(this.coinTimer > this.coinInterval){ this.coinTimer = 0; this.spawnCoin(); this.coinInterval = Phaser.Math.Clamp(1100 - Math.floor(this.distance/300)*20, 500, 1300); }
 
-    // Move existing obstacles and coins downward by setting velocity
-    const speed = this.baseSpeed + Math.floor(this.distance/200) * 20; // increase pace with distance
-    Phaser.Actions.Call(this.obstacles.getChildren(), (o)=>{ o.body.setVelocityY(speed); if(o.y > this.scale.height + 80) o.destroy(); });
-    Phaser.Actions.Call(this.coins.getChildren(), (c)=>{ c.body.setVelocityY(speed); if(c.y > this.scale.height + 80) c.destroy(); });
+    // update obstacles & coins positions controlled by their velocity (set during spawn)
+    Phaser.Actions.Call(this.obstacles.getChildren(), obs=>{ if(obs.y > GAME_HEIGHT + 80) obs.destroy(); });
+    Phaser.Actions.Call(this.coins.getChildren(), c=>{ if(c.y > GAME_HEIGHT + 80) c.destroy(); });
 
-    // Monster movement: move upward toward player y and match player's lane slowly
-    this.monsterBody.setVelocityY(- (this.monsterSpeed + Math.floor(this.distance/400)*10));
-    const desiredMonsterX = this.laneX[Math.max(0, Math.min(LANE_COUNT-1, this.playerLane))];
-    this.monster.x = Phaser.Math.Linear(this.monster.x, desiredMonsterX, 0.015);
+    // move monster upward slowly
+    const mSpeed = 80 + (this.distance/800); this.monster.y -= mSpeed * (dt/1000); this.monster.x = Phaser.Math.Linear(this.monster.x, this.lanes[Math.max(0,Math.min(2,this.playerLane))], 0.02);
     this.monsterName.x = this.monster.x; this.monsterName.y = this.monster.y - 70;
+    // if monster reaches player zone -> game over
+    if(this.monster.y <= this.player.y + 60) this.triggerGameOver();
 
-    // If monster reaches near player's y -> caught
-    if(this.monster.y <= this.player.y + 60){ this.triggerGameOver(); }
+    // update player name position
+    this.playerName.x = Phaser.Math.Linear(this.playerName.x, this.player.x, 0.25);
+    this.playerName.y = this.player.y - 70;
 
-    // Update distance
-    this.distance += (speed * (delta/1000));
-    this.scoreEl.innerText = this.score + ' (Coins:' + this.coinsCollected + ')';
+    // distance & score
+    this.distance += (this.worldSpeedBase * (dt/1000));
+    this.score += 0.06 * (this.helperMode ? 0.8 : 1);
+    // update DOM HUDs
+    this.scoreEl.innerText = Math.floor(this.score);
     this.distEl.innerText = Math.floor(this.distance);
-  }
+    this.highEl.innerText = this.highScore;
+    document.getElementById('score-panel').innerText = 'Score: ' + Math.floor(this.score);
 
-  changeLane(dir){
-    const newLane = Phaser.Math.Clamp(this.playerLane + dir, 0, LANE_COUNT-1);
-    if(newLane === this.playerLane) return;
-    this.playerLane = newLane;
-  }
-
-  tryJump(){
-    // allow jump only if touching floor (simple check: y near ground)
-    if(Math.abs(this.player.y - this.groundY) < 6){
-      this.playerBody.setVelocityY(-550);
-    }
-  }
-
-  spawnItem(){
-    const lane = Phaser.Math.Between(0, LANE_COUNT-1);
-    const kind = Phaser.Math.Between(0, 100);
-    const x = this.laneX[lane];
-    const y = -60;
-    if(kind < 65){
-      // obstacle
-      const obs = this.add.rectangle(x, y, 90, 44, 0x8b5a2b);
-      this.physics.add.existing(obs);
-      obs.body.setImmovable(true);
-      obs.body.setAllowGravity(false);
-      this.obstacles.add(obs);
-    } else {
-      // coin
-      const coin = this.add.circle(x, y, 12, 0xffd454);
-      this.physics.add.existing(coin);
-      coin.body.setImmovable(true);
-      coin.body.setAllowGravity(false);
-      this.coins.add(coin);
-    }
-  }
-
-  onHitObstacle(player, obstacle){
-    // If player is sufficiently above obstacle we treat as jump over
-    if(this.player.y + 20 < obstacle.y) return;
-    // else collision
-    obstacle.destroy();
-    this.score = Math.max(0, this.score - 6);
-    // small camera shake
-    this.cameras.main.shake(160, 0.01);
-  }
-
-  onCollectCoin(player, coin){ coin.destroy(); this.coinsCollected++; this.score += 12; }
-
-  triggerGameOver(){
-    if(this.gameOver) return;
-    this.gameOver = true;
-    // Freeze physics
-    this.physics.pause();
-    // Display Game Over panel
-    const w = this.scale.width, h = this.scale.height;
-    const panel = this.add.rectangle(w/2, h/2, 480, 240, 0x000000, 0.6).setDepth(50);
-    this.add.text(w/2, h/2 - 40, 'Game Over', {font:'36px Arial', color:'#ffffff'}).setOrigin(0.5).setDepth(51);
-    this.add.text(w/2, h/2, 'Score: ' + this.score + '   Coins: ' + this.coinsCollected, {font:'18px Arial', color:'#ffffff'}).setOrigin(0.5).setDepth(51);
-    this.add.text(w/2, h/2 + 50, 'Press R to Restart', {font:'16px Arial', color:'#cccccc'}).setOrigin(0.5).setDepth(51);
+    // AI helper auto-adjust: if many recent losses, make game easier by increasing spawn interval
+    if(this.lossStreak >= 2){ this.baseSpawn = 1200; this.helperMode = true; } else { this.baseSpawn = 900; this.helperMode = false; }
   }
 }
 
-const config = {
-  type: Phaser.AUTO,
-  parent: 'game-container',
-  width: Math.min(900, window.innerWidth),
-  height: Math.min(700, window.innerHeight),
-  backgroundColor: '#071019',
-  physics: { default: 'arcade', arcade: { debug: false } },
-  scene: [RunnerScene]
-};
-
+const config = { type:Phaser.AUTO, width:GAME_WIDTH, height:GAME_HEIGHT, parent:'game-container', backgroundColor:'#071226', physics:{ default:'arcade', arcade:{ debug:false } }, scene:[Boot, Start, Main] };
 const game = new Phaser.Game(config);
 
-window.addEventListener('resize', ()=>{ game.scale.resize(Math.min(900, window.innerWidth), Math.min(700, window.innerHeight)); });
+// show native controls initially hidden until Start
+if(IS_MOBILE) document.getElementById('touchControls').style.display = 'flex';
+else document.getElementById('touchControls').style.display = 'none';
+
+// update start card high
+document.getElementById('start-high').innerText = loadHigh();
+
+// handle resize to be friendly
+window.addEventListener('resize', ()=>{ const w = Math.min(900, window.innerWidth); const h = Math.min(700, window.innerHeight); game.scale.resize(w,h); });
 
 </script>
 </body>
