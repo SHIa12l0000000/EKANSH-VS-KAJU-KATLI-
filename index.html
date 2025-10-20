@@ -41,8 +41,8 @@
     padding: 12px 20px;
     border-radius: 10px;
   }
-  #retryBtn { top: 65%; left: 40%; transform: translate(-50%, -50%); }
-  #nextBtn  { top: 65%; left: 60%; transform: translate(-50%, -50%); }
+  #retryBtn { top: 68%; left: 40%; transform: translate(-50%, -50%); }
+  #nextBtn  { top: 68%; left: 60%; transform: translate(-50%, -50%); }
 </style>
 </head>
 <body>
@@ -70,9 +70,10 @@ const game = new Phaser.Game(config);
 
 let player, goodBalls, badBalls;
 let score = 0, level = 1, gameOver = false;
-let scoreText, powerTimers = {};
+let scoreText, levelTarget = 500;
 let ballSpeed = 140, spawnRate = 1100;
 let powers = { magnet: false, invisible: false, speed: false, double: false };
+let lastUsed = { magnet: 0, invisible: 0, speed: 0, double: 0 };
 let highScore = localStorage.getItem('highScore') || 0;
 
 function preload() {
@@ -84,19 +85,24 @@ function preload() {
 function create() {
   const w = this.scale.width;
   const h = this.scale.height;
-  gameOver = false; score = 0; level = 1; 
+  gameOver = false; score = 0; level = 1;
+  levelTarget = 500;
   ballSpeed = 140; spawnRate = 1100;
   powers = { magnet: false, invisible: false, speed: false, double: false };
 
-  player = this.physics.add.sprite(w / 2, h - 100, 'player').setScale(0.18).setCollideWorldBounds(true);
-  player.nameText = this.add.text(player.x, player.y - 50, 'EKANSH', { fontSize: '18px', fill: '#00ff00' }).setOrigin(0.5);
+  player = this.physics.add.sprite(w / 2, h - 100, 'player')
+    .setScale(0.18)
+    .setCollideWorldBounds(true);
+  player.nameText = this.add.text(player.x, player.y - 50, 'EKANSH', 
+    { fontSize: '18px', fill: '#00ff00' }).setOrigin(0.5);
 
   goodBalls = this.physics.add.group();
   badBalls = this.physics.add.group();
 
-  scoreText = this.add.text(20, 20, 'Score: 0', { fontSize: '22px', fill: '#fff' });
+  scoreText = this.add.text(20, 20, 'Score: 0  |  Target: ' + levelTarget,
+    { fontSize: '22px', fill: '#fff' });
 
-  // Player move with touch/mouse
+  // Move player with touch
   this.input.on('pointermove', pointer => { if (!gameOver) player.x = pointer.x; });
 
   // Spawn balls
@@ -150,20 +156,20 @@ function update() {
   goodBalls.children.iterate(b => { if (b) b.body.velocity.y = currentSpeed; });
   badBalls.children.iterate(b => { if (b) b.body.velocity.y = currentSpeed; });
 
-  if (score >= level * 100 && level < 10) {
+  if (score >= levelTarget) {
     level++;
+    levelTarget *= 2; // double each level requirement
     ballSpeed += 10;
     spawnRate = Math.max(500, spawnRate - 50);
+    scoreText.setText('Score: ' + score + '  |  Target: ' + levelTarget);
   }
-
-  if (level > 10) endGameMsg('YOU WON!');
 }
 
 function collectGood(p, ball) {
   if (ball.nameText) ball.nameText.destroy();
   ball.destroy();
   score += powers.double ? 20 : 10;
-  scoreText.setText('Score: ' + score);
+  scoreText.setText('Score: ' + score + '  |  Target: ' + levelTarget);
 }
 
 function hitBad(p, ball) {
@@ -207,7 +213,12 @@ function setupPowerButtons() {
 }
 
 function activatePower(powerName, btn) {
+  const now = Date.now();
+  const cooldown = 30000; // 30 seconds cooldown
+  if (now - lastUsed[powerName] < cooldown) return; // still in cooldown
   if (powers[powerName]) return;
+
+  lastUsed[powerName] = now;
   powers[powerName] = true;
   let remaining = 10;
   btn.innerText = powerName.toUpperCase() + ' ' + remaining + 's';
@@ -218,6 +229,16 @@ function activatePower(powerName, btn) {
       clearInterval(timer);
       powers[powerName] = false;
       btn.innerText = powerName.charAt(0).toUpperCase() + powerName.slice(1);
+      // show cooldown after use
+      let cd = 30;
+      const cdTimer = setInterval(() => {
+        cd--;
+        btn.innerText = powerName.charAt(0).toUpperCase() + powerName.slice(1) + ' (' + cd + 's)';
+        if (cd <= 0) {
+          clearInterval(cdTimer);
+          btn.innerText = powerName.charAt(0).toUpperCase() + powerName.slice(1);
+        }
+      }, 1000);
     }
   }, 1000);
 }
