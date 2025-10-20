@@ -6,9 +6,43 @@
 <title>Ekansh vs Kaju Katli & Kopra Pathi</title>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 <style>
-  html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; }
-  #ui { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:10; }
-  button { font-size:16px; padding:10px 15px; border:none; border-radius:5px; cursor:pointer; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    height: 100%;
+    overflow: hidden;
+  }
+  #ui {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  button {
+    font-size: 16px;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #333;
+    color: #fff;
+  }
+  #retryBtn, #nextBtn {
+    display: none;
+    position: absolute;
+    z-index: 20;
+    background: #0b84ff;
+    color: white;
+    font-size: 18px;
+    padding: 12px 20px;
+    border-radius: 10px;
+  }
+  #retryBtn { top: 65%; left: 40%; transform: translate(-50%, -50%); }
+  #nextBtn  { top: 65%; left: 60%; transform: translate(-50%, -50%); }
 </style>
 </head>
 <body>
@@ -20,8 +54,8 @@
   <button id="doubleBtn">Double Points</button>
 </div>
 
-<button id="retryBtn" style="display:none; position:absolute; top:50%; left:30%;">RETRY</button>
-<button id="nextBtn" style="display:none; position:absolute; top:50%; left:60%;">NEXT</button>
+<button id="retryBtn">RETRY</button>
+<button id="nextBtn">NEXT</button>
 
 <script>
 const config = {
@@ -29,144 +63,163 @@ const config = {
   width: window.innerWidth,
   height: window.innerHeight,
   backgroundColor: "#111",
-  physics: { default:'arcade', arcade:{debug:false} },
-  scene:{preload, create, update}
+  physics: { default: 'arcade', arcade: { debug: false } },
+  scene: { preload, create, update }
 };
 const game = new Phaser.Game(config);
 
 let player, goodBalls, badBalls;
-let score=0, level=1, gameOver=false;
+let score = 0, level = 1, gameOver = false;
 let scoreText, powerTimers = {};
-let ballSpeed = 160, spawnRate = 1000;
-let powers = {magnet:false, invisible:false, speed:false, double:false};
+let ballSpeed = 140, spawnRate = 1100;
+let powers = { magnet: false, invisible: false, speed: false, double: false };
 let highScore = localStorage.getItem('highScore') || 0;
 
-function preload(){
-  this.load.image('player','ekansh.png');
-  this.load.image('good','kopra Pathi.png');
-  this.load.image('danger','kaju Katli.png');
+function preload() {
+  this.load.image('player', 'ekansh.png');
+  this.load.image('good', 'kopra Pathi.png');
+  this.load.image('danger', 'kaju Katli.png');
 }
 
-function create(){
+function create() {
   const w = this.scale.width;
   const h = this.scale.height;
-  gameOver=false; score=0; ballSpeed=160; spawnRate=1000; powers={magnet:false,invisible:false,speed:false,double:false};
+  gameOver = false; score = 0; level = 1; 
+  ballSpeed = 140; spawnRate = 1100;
+  powers = { magnet: false, invisible: false, speed: false, double: false };
 
-  player = this.physics.add.sprite(w/2,h-100,'player').setScale(0.18).setCollideWorldBounds(true);
-  player.nameText=this.add.text(player.x,player.y-50,'EKANSH',{fontSize:'18px',fill:'#00ff00'}).setOrigin(0.5);
+  player = this.physics.add.sprite(w / 2, h - 100, 'player').setScale(0.18).setCollideWorldBounds(true);
+  player.nameText = this.add.text(player.x, player.y - 50, 'EKANSH', { fontSize: '18px', fill: '#00ff00' }).setOrigin(0.5);
 
-  goodBalls=this.physics.add.group();
-  badBalls=this.physics.add.group();
+  goodBalls = this.physics.add.group();
+  badBalls = this.physics.add.group();
 
-  scoreText=this.add.text(20,20,'Score: 0',{fontSize:'24px',fill:'#fff'});
+  scoreText = this.add.text(20, 20, 'Score: 0', { fontSize: '22px', fill: '#fff' });
 
-  this.input.on('pointermove',pointer=>{ if(!gameOver) player.x=pointer.x; });
+  // Player move with touch/mouse
+  this.input.on('pointermove', pointer => { if (!gameOver) player.x = pointer.x; });
 
-  this.time.addEvent({delay: spawnRate, loop:true, callback: ()=>spawnBall(this)});
+  // Spawn balls
+  this.time.addEvent({ delay: spawnRate, loop: true, callback: () => spawnBall(this) });
 
   this.physics.add.overlap(player, goodBalls, collectGood, null, this);
   this.physics.add.overlap(player, badBalls, hitBad, null, this);
 
-  // Power buttons
   setupPowerButtons();
 }
 
-function spawnBall(scene){
-  if(gameOver) return;
+function spawnBall(scene) {
+  if (gameOver) return;
   const w = scene.scale.width;
-  const isGood = Phaser.Math.Between(0,1);
-  const x = Phaser.Math.Between(40,w-40);
-  let ball,name;
-  if(isGood){
-    ball=goodBalls.create(x,-20,'good').setScale(0.18);
-    name=scene.add.text(ball.x,ball.y-25,'KOPRA PATHI',{fontSize:'16px',fill:'#0ff'}).setOrigin(0.5);
+  const isGood = Phaser.Math.Between(0, 1);
+  const x = Phaser.Math.Between(40, w - 40);
+  let ball, name;
+  if (isGood) {
+    ball = goodBalls.create(x, -20, 'good').setScale(0.18);
+    name = scene.add.text(ball.x, ball.y - 25, 'KOPRA PATHI', { fontSize: '16px', fill: '#0ff' }).setOrigin(0.5);
   } else {
-    ball=badBalls.create(x,-20,'danger').setScale(0.18);
-    name=scene.add.text(ball.x,ball.y-25,'KAJU KATLI',{fontSize:'16px',fill:'#ff5555'}).setOrigin(0.5);
+    ball = badBalls.create(x, -20, 'danger').setScale(0.18);
+    name = scene.add.text(ball.x, ball.y - 25, 'KAJU KATLI', { fontSize: '16px', fill: '#ff5555' }).setOrigin(0.5);
   }
-  ball.body.setVelocityY(ballSpeed+Phaser.Math.Between(0,50));
-  ball.nameText=name;
+  ball.body.setVelocityY(ballSpeed + Phaser.Math.Between(0, 30));
+  ball.nameText = name;
 }
 
-function update(){
-  if(gameOver) return;
+function update() {
+  if (gameOver) return;
 
-  // Update ball name positions
-  goodBalls.children.iterate(b=>{ if(b && b.nameText){ b.nameText.setPosition(b.x,b.y-25); if(b.y>this.scale.height+40){ b.nameText.destroy(); b.destroy(); } }});
-  badBalls.children.iterate(b=>{ if(b && b.nameText){ b.nameText.setPosition(b.x,b.y-25); if(b.y>this.scale.height+40){ b.nameText.destroy(); b.destroy(); } }});
+  goodBalls.children.iterate(b => {
+    if (b && b.nameText) {
+      b.nameText.setPosition(b.x, b.y - 25);
+      if (b.y > this.scale.height + 40) { b.nameText.destroy(); b.destroy(); }
+    }
+  });
+  badBalls.children.iterate(b => {
+    if (b && b.nameText) {
+      b.nameText.setPosition(b.x, b.y - 25);
+      if (b.y > this.scale.height + 40) { b.nameText.destroy(); b.destroy(); }
+    }
+  });
+  player.nameText.setPosition(player.x, player.y - 50);
 
-  player.nameText.setPosition(player.x,player.y-50);
-
-  // Magnet power effect
-  if(powers.magnet){
-    goodBalls.children.iterate(b=>{ if(b) b.x=Phaser.Math.Linear(b.x,player.x,0.05); });
+  if (powers.magnet) {
+    goodBalls.children.iterate(b => { if (b) b.x = Phaser.Math.Linear(b.x, player.x, 0.05); });
   }
 
-  // Speed power effect
-  let currentSpeed= powers.speed ? ballSpeed*1.5 : ballSpeed;
-  goodBalls.children.iterate(b=>{ if(b) b.body.velocity.y=currentSpeed; });
-  badBalls.children.iterate(b=>{ if(b) b.body.velocity.y=currentSpeed; });
+  let currentSpeed = powers.speed ? ballSpeed * 1.2 : ballSpeed;
+  goodBalls.children.iterate(b => { if (b) b.body.velocity.y = currentSpeed; });
+  badBalls.children.iterate(b => { if (b) b.body.velocity.y = currentSpeed; });
 
-  // Level progression
-  if(score>=level*100 && level<10){ level++; ballSpeed+=20; spawnRate=Math.max(400,spawnRate-50);}
-  if(level>10){ endGameMsg('YOU WON'); }
+  if (score >= level * 100 && level < 10) {
+    level++;
+    ballSpeed += 10;
+    spawnRate = Math.max(500, spawnRate - 50);
+  }
+
+  if (level > 10) endGameMsg('YOU WON!');
 }
 
-function collectGood(p,ball){
-  if(ball.nameText) ball.nameText.destroy();
+function collectGood(p, ball) {
+  if (ball.nameText) ball.nameText.destroy();
   ball.destroy();
-  score+=powers.double?20:10;
-  scoreText.setText('Score: '+score);
+  score += powers.double ? 20 : 10;
+  scoreText.setText('Score: ' + score);
 }
 
-function hitBad(p,ball){
-  if(powers.invisible) return;
-  if(ball.nameText) ball.nameText.destroy();
+function hitBad(p, ball) {
+  if (powers.invisible) return;
+  if (ball.nameText) ball.nameText.destroy();
   ball.destroy();
-  endGameMsg('YOU LOSS');
+  endGameMsg('YOU LOST!');
 }
 
-function endGameMsg(msg){
-  gameOver=true;
+function endGameMsg(msg) {
+  gameOver = true;
   goodBalls.setVelocityY(0);
   badBalls.setVelocityY(0);
-  goodBalls.children.iterate(b=>{if(b.nameText)b.nameText.destroy();});
-  badBalls.children.iterate(b=>{if(b.nameText)b.nameText.destroy();});
+  goodBalls.children.iterate(b => { if (b.nameText) b.nameText.destroy(); });
+  badBalls.children.iterate(b => { if (b.nameText) b.nameText.destroy(); });
 
-  if(score>highScore){ highScore=score; localStorage.setItem('highScore',highScore);}
-  scoreText.setText(score+' pts | Level '+level);
+  if (score > highScore) { highScore = score; localStorage.setItem('highScore', highScore); }
+  scoreText.setText(score + ' pts | Level ' + level);
 
-  const scene0=game.scene.scenes[0];
-  scene0.add.text(scene0.scale.width/2,scene0.scale.height/2,msg+'\nScore:'+score+'\nHighScore:'+highScore,
-    {fontSize:'28px',fill:'#fff',align:'center'}).setOrigin(0.5);
+  const scene0 = game.scene.scenes[0];
+  const message = `${msg}\nScore: ${score}\nHigh Score: ${highScore}`;
+  const msgText = scene0.add.text(scene0.scale.width / 2, scene0.scale.height / 2 - 60, message,
+    { fontSize: '26px', fill: '#fff', align: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 20, y: 10 } }
+  ).setOrigin(0.5);
 
-  // Show buttons
-  const retry=document.getElementById('retryBtn');
-  const next=document.getElementById('nextBtn');
-  retry.style.display='block';
-  next.style.display=(msg==='YOU WON')?'block':'none';
-  retry.onclick=()=>{retry.style.display='none';next.style.display='none';level=1;score=0;gameOver=false;scene0.scene.restart();};
-  next.onclick=()=>{retry.style.display='none';next.style.display='none';level=1;score=0;ballSpeed=160;spawnRate=1000;gameOver=false;scene0.scene.restart();};
+  const retry = document.getElementById('retryBtn');
+  const next = document.getElementById('nextBtn');
+  retry.style.display = 'block';
+  next.style.display = (msg === 'YOU WON!') ? 'block' : 'none';
+
+  retry.onclick = () => { msgText.destroy(); retry.style.display = 'none'; next.style.display = 'none'; gameOver = false; scene0.scene.restart(); };
+  next.onclick = () => { msgText.destroy(); retry.style.display = 'none'; next.style.display = 'none'; gameOver = false; scene0.scene.restart(); };
 }
 
-function setupPowerButtons(){
-  const btns=['magnet','invisible','speed','double'];
-  btns.forEach(power=>{
-    const btn=document.getElementById(power+'Btn');
-    btn.onclick=()=>activatePower(power,btn);
+function setupPowerButtons() {
+  const btns = ['magnet', 'invisible', 'speed', 'double'];
+  btns.forEach(power => {
+    const btn = document.getElementById(power + 'Btn');
+    btn.onclick = () => activatePower(power, btn);
   });
 }
 
-function activatePower(powerName,btn){
-  if(powers[powerName]) return; // already active
-  powers[powerName]=true;
-  let remaining=10;
-  btn.innerText=powerName.toUpperCase()+' '+remaining+'s';
-  const timer=setInterval(()=>{
+function activatePower(powerName, btn) {
+  if (powers[powerName]) return;
+  powers[powerName] = true;
+  let remaining = 10;
+  btn.innerText = powerName.toUpperCase() + ' ' + remaining + 's';
+  const timer = setInterval(() => {
     remaining--;
-    btn.innerText=powerName.toUpperCase()+' '+remaining+'s';
-    if(remaining<=0){ clearInterval(timer); powers[powerName]=false; btn.innerText=powerName.charAt(0).toUpperCase()+powerName.slice(1); }
-  },1000);
+    btn.innerText = powerName.toUpperCase() + ' ' + remaining + 's';
+    if (remaining <= 0) {
+      clearInterval(timer);
+      powers[powerName] = false;
+      btn.innerText = powerName.charAt(0).toUpperCase() + powerName.slice(1);
+    }
+  }, 1000);
 }
 </script>
 </body>
