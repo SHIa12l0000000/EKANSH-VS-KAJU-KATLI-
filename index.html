@@ -2,144 +2,172 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Temple Run: Ekansh vs KAJU KATTRI</title>
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Ekansh vs Kaju Katli & Kopra Pathi</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 <style>
-body { margin:0; overflow:hidden; background:#111; }
-canvas { display:block; margin:auto; }
-.controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display:flex; gap:20px; z-index:10; }
-button { width:70px; height:70px; font-size:28px; border-radius:50%; border:none; background:#333; color:#fff; box-shadow:0 0 10px #00ff00; }
-button:active { background:#00ff00; color:#000; }
+  html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; }
+  #ui { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:10; }
+  button { font-size:16px; padding:10px 15px; border:none; border-radius:5px; cursor:pointer; }
 </style>
 </head>
 <body>
 
-<div class="controls" id="controls" style="display:none;">
-  <button id="left">⬅️</button>
-  <button id="jump">⏫</button>
-  <button id="right">➡️</button>
+<div id="ui">
+  <button id="magnetBtn">Magnet</button>
+  <button id="invisibleBtn">Invisible</button>
+  <button id="speedBtn">Speed Up</button>
+  <button id="doubleBtn">Double Points</button>
 </div>
 
+<button id="retryBtn" style="display:none; position:absolute; top:50%; left:30%;">RETRY</button>
+<button id="nextBtn" style="display:none; position:absolute; top:50%; left:60%;">NEXT</button>
+
 <script>
-class StartScene extends Phaser.Scene {
-  constructor(){ super('StartScene'); }
-  create(){
-    this.add.text(120,200,'Temple Run:\nEkansh vs KAJU KATTRI',{fontSize:'36px', fill:'#00ff00', align:'center'});
-    this.add.text(250,400,'Tap or Press SPACE to Start',{fontSize:'22px', fill:'#fff'});
-    this.input.keyboard.once('keydown-SPACE', ()=>this.scene.start('GameScene'));
-    this.input.once('pointerdown', ()=>this.scene.start('GameScene'));
-  }
-}
-
-class GameScene extends Phaser.Scene {
-  constructor(){ super('GameScene'); }
-  
-  preload(){
-    // Placeholder images (replace later)
-    this.load.image('player','https://i.ibb.co/0t6Nqsy/ekansh.png'); // replace with your image
-    this.load.image('monster','https://i.ibb.co/2nK4PSg/kaju.png'); // replace with your image
-    this.load.image('coin','https://i.ibb.co/wK0QWqk/coin.png'); 
-    this.load.image('obstacle','https://i.ibb.co/Wk8SL1d/obstacle.png'); 
-    this.load.audio('coinS','https://cdn.pixabay.com/download/audio/2021/09/14/audio_6c84a49a03.mp3?filename=collect-coin-1-190131.mp3');
-    this.load.audio('jumpS','https://cdn.pixabay.com/download/audio/2021/09/07/audio_3b6c6d7c22.mp3?filename=jump-142094.mp3');
-  }
-
-  create(){
-    document.getElementById('controls').style.display='flex';
-    this.coinSound = this.sound.add('coinS',{volume:0.6});
-    this.jumpSound = this.sound.add('jumpS',{volume:0.5});
-
-    // Variables
-    this.lanes = [180,400,620];
-    this.playerLane = 1;
-    this.jumpPower = -400;
-    this.gravity = 1000;
-    this.groundY = 520;
-    this.score = 0;
-    this.speed = 5;
-    this.isGameOver = false;
-
-    // Background
-    this.add.rectangle(400,300,800,600,0x222222);
-
-    // Player
-    this.player = this.physics.add.sprite(this.lanes[this.playerLane],this.groundY-50,'player').setScale(0.5);
-    this.player.body.setGravityY(this.gravity);
-    this.player.body.setCollideWorldBounds(true);
-
-    // Monster
-    this.monster = this.physics.add.sprite(this.lanes[0],600,'monster').setScale(0.5);
-    this.monster.body.setImmovable(true);
-
-    // Groups
-    this.obstacles = this.physics.add.group();
-    this.coins = this.physics.add.group();
-
-    // Score
-    this.scoreText = this.add.text(20,20,'Score: 0',{fontSize:'26px', fill:'#fff'});
-
-    // Controls
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.input.keyboard.on('keydown-A', ()=>this.moveLeft());
-    this.input.keyboard.on('keydown-D', ()=>this.moveRight());
-    this.input.keyboard.on('keydown-SPACE', ()=>this.jump());
-    document.getElementById('left').onclick = ()=>this.moveLeft();
-    document.getElementById('right').onclick = ()=>this.moveRight();
-    document.getElementById('jump').onclick = ()=>this.jump();
-
-    // Spawners
-    this.time.addEvent({delay:2000, loop:true, callback:this.spawnObstacle, callbackScope:this});
-    this.time.addEvent({delay:1300, loop:true, callback:this.spawnCoin, callbackScope:this});
-
-    // Collisions
-    this.physics.add.overlap(this.player,this.obstacles,this.gameOver,null,this);
-    this.physics.add.overlap(this.player,this.coins,this.collectCoin,null,this);
-  }
-
-  moveLeft(){if(this.isGameOver) return; if(this.playerLane>0){this.playerLane--; this.tweens.add({targets:this.player,x:this.lanes[this.playerLane],duration:150,ease:'Power2'});}}
-  moveRight(){if(this.isGameOver) return; if(this.playerLane<2){this.playerLane++; this.tweens.add({targets:this.player,x:this.lanes[this.playerLane],duration:150,ease:'Power2'});}}
-  jump(){if(this.isGameOver) return; if(this.player.body.blocked.down){this.player.body.setVelocityY(this.jumpPower); this.jumpSound.play();}}
-
-  spawnObstacle(){if(this.isGameOver) return; const lane = Phaser.Math.Between(0,2); const obs = this.physics.add.sprite(this.lanes[lane],-20,'obstacle').setScale(0.25); obs.body.setVelocityY(this.speed*80); obs.body.setAllowGravity(false); this.obstacles.add(obs);}
-  spawnCoin(){if(this.isGameOver) return; const lane = Phaser.Math.Between(0,2); const coin = this.physics.add.sprite(this.lanes[lane],-20,'coin').setScale(0.25); coin.body.setVelocityY(this.speed*70); coin.body.setAllowGravity(false); this.coins.add(coin);}
-  collectCoin(player,coin){coin.destroy(); this.coinSound.play(); this.score+=10; this.scoreText.setText('Score: '+Math.floor(this.score));}
-
-  gameOver(){
-    if(this.isGameOver) return;
-    this.isGameOver = true;
-    document.getElementById('controls').style.display='none';
-    this.add.text(150,260,'GAME OVER! 😢\nPress R or Refresh to Restart',{fontSize:'26px', fill:'#fff', align:'center'});
-    this.input.keyboard.once('keydown-R', ()=>this.scene.start('StartScene'));
-  }
-
-  update(){
-    if(this.isGameOver) return;
-
-    // Remove out-of-screen objects
-    this.obstacles.children.iterate(c=>{if(c.y>600)c.destroy();});
-    this.coins.children.iterate(c=>{if(c.y>600)c.destroy();});
-
-    // Increment score and speed
-    this.score+=0.05;
-    this.scoreText.setText('Score: '+Math.floor(this.score));
-    if(this.score % 200 === 0 && this.speed<10) this.speed+=0.3;
-
-    // Monster follows player slowly
-    this.monster.x = Phaser.Math.Linear(this.monster.x,this.lanes[this.playerLane],0.02);
-  }
-}
-
 const config = {
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
+  width: window.innerWidth,
+  height: window.innerHeight,
+  backgroundColor: "#111",
   physics: { default:'arcade', arcade:{debug:false} },
-  scene: [StartScene,GameScene]
+  scene:{preload, create, update}
 };
-
 const game = new Phaser.Game(config);
-</script>
 
+let player, goodBalls, badBalls;
+let score=0, level=1, gameOver=false;
+let scoreText, powerTimers = {};
+let ballSpeed = 160, spawnRate = 1000;
+let powers = {magnet:false, invisible:false, speed:false, double:false};
+let highScore = localStorage.getItem('highScore') || 0;
+
+function preload(){
+  this.load.image('player','ekansh.png');
+  this.load.image('good','kopra Pathi.png');
+  this.load.image('danger','kaju Katli.png');
+}
+
+function create(){
+  const w = this.scale.width;
+  const h = this.scale.height;
+  gameOver=false; score=0; ballSpeed=160; spawnRate=1000; powers={magnet:false,invisible:false,speed:false,double:false};
+
+  player = this.physics.add.sprite(w/2,h-100,'player').setScale(0.18).setCollideWorldBounds(true);
+  player.nameText=this.add.text(player.x,player.y-50,'EKANSH',{fontSize:'18px',fill:'#00ff00'}).setOrigin(0.5);
+
+  goodBalls=this.physics.add.group();
+  badBalls=this.physics.add.group();
+
+  scoreText=this.add.text(20,20,'Score: 0',{fontSize:'24px',fill:'#fff'});
+
+  this.input.on('pointermove',pointer=>{ if(!gameOver) player.x=pointer.x; });
+
+  this.time.addEvent({delay: spawnRate, loop:true, callback: ()=>spawnBall(this)});
+
+  this.physics.add.overlap(player, goodBalls, collectGood, null, this);
+  this.physics.add.overlap(player, badBalls, hitBad, null, this);
+
+  // Power buttons
+  setupPowerButtons();
+}
+
+function spawnBall(scene){
+  if(gameOver) return;
+  const w = scene.scale.width;
+  const isGood = Phaser.Math.Between(0,1);
+  const x = Phaser.Math.Between(40,w-40);
+  let ball,name;
+  if(isGood){
+    ball=goodBalls.create(x,-20,'good').setScale(0.18);
+    name=scene.add.text(ball.x,ball.y-25,'KOPRA PATHI',{fontSize:'16px',fill:'#0ff'}).setOrigin(0.5);
+  } else {
+    ball=badBalls.create(x,-20,'danger').setScale(0.18);
+    name=scene.add.text(ball.x,ball.y-25,'KAJU KATLI',{fontSize:'16px',fill:'#ff5555'}).setOrigin(0.5);
+  }
+  ball.body.setVelocityY(ballSpeed+Phaser.Math.Between(0,50));
+  ball.nameText=name;
+}
+
+function update(){
+  if(gameOver) return;
+
+  // Update ball name positions
+  goodBalls.children.iterate(b=>{ if(b && b.nameText){ b.nameText.setPosition(b.x,b.y-25); if(b.y>this.scale.height+40){ b.nameText.destroy(); b.destroy(); } }});
+  badBalls.children.iterate(b=>{ if(b && b.nameText){ b.nameText.setPosition(b.x,b.y-25); if(b.y>this.scale.height+40){ b.nameText.destroy(); b.destroy(); } }});
+
+  player.nameText.setPosition(player.x,player.y-50);
+
+  // Magnet power effect
+  if(powers.magnet){
+    goodBalls.children.iterate(b=>{ if(b) b.x=Phaser.Math.Linear(b.x,player.x,0.05); });
+  }
+
+  // Speed power effect
+  let currentSpeed= powers.speed ? ballSpeed*1.5 : ballSpeed;
+  goodBalls.children.iterate(b=>{ if(b) b.body.velocity.y=currentSpeed; });
+  badBalls.children.iterate(b=>{ if(b) b.body.velocity.y=currentSpeed; });
+
+  // Level progression
+  if(score>=level*100 && level<10){ level++; ballSpeed+=20; spawnRate=Math.max(400,spawnRate-50);}
+  if(level>10){ endGameMsg('YOU WON'); }
+}
+
+function collectGood(p,ball){
+  if(ball.nameText) ball.nameText.destroy();
+  ball.destroy();
+  score+=powers.double?20:10;
+  scoreText.setText('Score: '+score);
+}
+
+function hitBad(p,ball){
+  if(powers.invisible) return;
+  if(ball.nameText) ball.nameText.destroy();
+  ball.destroy();
+  endGameMsg('YOU LOSS');
+}
+
+function endGameMsg(msg){
+  gameOver=true;
+  goodBalls.setVelocityY(0);
+  badBalls.setVelocityY(0);
+  goodBalls.children.iterate(b=>{if(b.nameText)b.nameText.destroy();});
+  badBalls.children.iterate(b=>{if(b.nameText)b.nameText.destroy();});
+
+  if(score>highScore){ highScore=score; localStorage.setItem('highScore',highScore);}
+  scoreText.setText(score+' pts | Level '+level);
+
+  const scene0=game.scene.scenes[0];
+  scene0.add.text(scene0.scale.width/2,scene0.scale.height/2,msg+'\nScore:'+score+'\nHighScore:'+highScore,
+    {fontSize:'28px',fill:'#fff',align:'center'}).setOrigin(0.5);
+
+  // Show buttons
+  const retry=document.getElementById('retryBtn');
+  const next=document.getElementById('nextBtn');
+  retry.style.display='block';
+  next.style.display=(msg==='YOU WON')?'block':'none';
+  retry.onclick=()=>{retry.style.display='none';next.style.display='none';level=1;score=0;gameOver=false;scene0.scene.restart();};
+  next.onclick=()=>{retry.style.display='none';next.style.display='none';level=1;score=0;ballSpeed=160;spawnRate=1000;gameOver=false;scene0.scene.restart();};
+}
+
+function setupPowerButtons(){
+  const btns=['magnet','invisible','speed','double'];
+  btns.forEach(power=>{
+    const btn=document.getElementById(power+'Btn');
+    btn.onclick=()=>activatePower(power,btn);
+  });
+}
+
+function activatePower(powerName,btn){
+  if(powers[powerName]) return; // already active
+  powers[powerName]=true;
+  let remaining=10;
+  btn.innerText=powerName.toUpperCase()+' '+remaining+'s';
+  const timer=setInterval(()=>{
+    remaining--;
+    btn.innerText=powerName.toUpperCase()+' '+remaining+'s';
+    if(remaining<=0){ clearInterval(timer); powers[powerName]=false; btn.innerText=powerName.charAt(0).toUpperCase()+powerName.slice(1); }
+  },1000);
+}
+</script>
 </body>
 </html>
